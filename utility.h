@@ -22,7 +22,7 @@ unsigned long  getino(int *dev, char *pathname);
 unsigned long  search(MINODE *mip, char *filename);
 
 // load the inode into MINODE 
-MINODE *iget(int dev, int ino);
+MINODE *iget(int dev, unsigned long ino);
 
 // put the MINODE back to disk
 void iput(MINODE *mip);

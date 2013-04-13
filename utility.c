@@ -145,7 +145,7 @@ unsigned long  search(MINODE * mip, char *filename)
   
 }
 
-MINODE * iget(int dev, int ino){
+MINODE * iget(int dev, unsigned long ino){
   int i, nodeIndex, blockIndex;
   INODE *cp;
   char buf[BLOCK_SIZE];

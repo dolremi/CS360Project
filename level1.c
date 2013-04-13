@@ -319,8 +319,7 @@ int make_dir()
   MINODE *pip;
   char path[256];
   char *parent, *child;
-  
-
+ 
   printf("mkdir : input pathname :");
   fgets(path,256,stdin);
   path[strlen(path)-1] = 0;
@@ -331,25 +330,23 @@ int make_dir()
     dev = root->dev;
   else
     dev = running->cwd->dev;
-
-  
+ 
+   
   if(findparent(path))
     {  
       parent = dirname(path);
       child = basename(path);
-      printf("parent = %s, child = %s.\n",parent,child); 
       ino = getino(&dev, parent);
-      if(ino== 0)
+      if(ino == 0)
 	return -1;
       pip = iget(dev,ino);
 
     }
   else
     {
-     
       pip = iget(running->cwd->dev,running->cwd->ino);
+      child = (char *)malloc((strlen(path) + 1)*sizeof(char));
       strcpy(child, path);
-      printf(" child is %s.\n",child);    
     }
 
 
@@ -365,7 +362,6 @@ int make_dir()
       printf("%s already exists.\n",child);
       return -1;
     }
-
   r = my_mkdir(pip, child);
 
   return r;
@@ -392,14 +388,11 @@ int my_mkdir(MINODE *pip, char *name)
   int need_length, ideal_length,rec_length,nodeIndex, blockIndex;
   DIR *dirp;
   MINODE *mip;
-
-
+ 
   // allocate an inode and a disk block for the new directory
   inumber = ialloc(pip->dev);
   bnumber = balloc(pip->dev);
  
-  printf("inumber is %d.\n",inumber);
-  printf("bnumber is %d.\n",bnumber); 
   mip = iget(pip->dev, inumber);
 
   /* write the content to mip->INODE*/
@@ -417,8 +410,8 @@ int my_mkdir(MINODE *pip, char *name)
   mip->INODE.i_block[0] = bnumber;
 
   iput(mip);
-
-  // write the . and .. entries into a buf[] of BLOCK_SIZE
+  
+   // write the . and .. entries into a buf[] of BLOCK_SIZE
   memset(buf,0,BLOCK_SIZE);
 
   dp = (DIR *)buf;
@@ -496,7 +489,6 @@ int my_mkdir(MINODE *pip, char *name)
 
   // write the new block back to the disk
     put_block(pip->dev,pip->INODE.i_block[i],buf2);
-   
    
   }
 
