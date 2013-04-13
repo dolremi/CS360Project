@@ -1,5 +1,6 @@
 #include "type.h"
 #include "utility.h"
+#include <stdlib.h>
 
 void get_block(int fd,int block, char *buf)
 {
