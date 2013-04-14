@@ -6,11 +6,12 @@ Currently working function:
 pwd
 ls
 cd
+mkdir
+stat
+creat
 
 The function needs to be fixed
-mkdir
 rmdir
-creat
 rm
 mv
 link

@@ -3,6 +3,8 @@
 #include "level1test.h"
 
 functionTable myTable[] ={
+   {"stat",stats},
+   {"creat",do_creat},
    {"mkdir",do_mkdir},
    {"ls",ls},
    {"cd",cd},

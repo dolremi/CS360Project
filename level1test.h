@@ -28,3 +28,13 @@ int findparent(char *pathn);
 int make_dir();
 
 void do_mkdir();
+
+void do_creat();
+
+int creat_file();
+
+int my_creat(MINODE *pip, char *name);
+
+void stats();
+
+int do_stat(char *path, struct stat *stPtr);
