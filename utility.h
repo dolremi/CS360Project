@@ -47,7 +47,7 @@ void decFreeInodes(int dev);
 
 // decrease free block count in SUPER and GD on dev
 void decFreeBlocks(int dev);
-/*
+
 // increase free block count in SUPER and GD on dev
 void incFreeInodes(int dev);
 
@@ -56,7 +56,7 @@ void incFreeBlocks(int dev);
 
 // deacllocate the block on the device 
 unsigned long bdealloc(int dev, unsigned long iblock)
-*/
+
 // test BITs
 int tst_bit(char *buf, int BIT);
 

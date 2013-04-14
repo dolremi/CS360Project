@@ -38,3 +38,9 @@ int my_creat(MINODE *pip, char *name);
 void stats();
 
 int do_stat(char *path, struct stat *stPtr);
+
+void do_rmdir();
+
+int rmdir();
+
+int rm_child(MINODE *parent, char *my_name);

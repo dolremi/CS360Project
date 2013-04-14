@@ -286,7 +286,7 @@ unsigned long ialloc(int dev)
   return 0;
 
 }
-/*
+
 unsigned long idealloc(int dev, unsigned long ino)
 {
   int i ;
@@ -300,7 +300,7 @@ unsigned long idealloc(int dev, unsigned long ino)
 
   incFreeInodes(dev);
 }
-*/
+
 unsigned long balloc(int dev)
 {
   int i;
@@ -328,7 +328,7 @@ unsigned long balloc(int dev)
   return 0;
 
 }
-/*
+
 unsigned long bdealloc(int dev, unsigned long iblock)
 {
   int i ;
@@ -342,7 +342,7 @@ unsigned long bdealloc(int dev, unsigned long iblock)
 
   incFreeBlocks(dev);
 }
-*/
+
 
 void decFreeInodes(int dev)
 {
@@ -359,7 +359,7 @@ void decFreeInodes(int dev)
   put_block(dev, GDBLOCK,buf);
 
 }
-/*
+
 void incFreeInodes(int dev)
 {
 
@@ -392,7 +392,7 @@ void incFreeBlocks(int dev)
   put_block(dev, GDBLOCK,buf);
 
 }
-*/
+
 void decFreeBlocks(int dev)
 {
 
