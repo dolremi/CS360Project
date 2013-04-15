@@ -731,7 +731,9 @@ int rmdir()
   unsigned long parent,ino;
   char *my_name;
   MINODE *mip,*pip;
+  char path[256]; 
 
+  strcpy(path, pathname);
   dev = running->cwd->dev; 
   ino = getino(&dev,pathname);
 
@@ -742,6 +744,7 @@ int rmdir()
 
   mip = iget(dev,ino);
   printf("dev is now %d, ino is %d.\n",mip->dev, ino);
+  printf("pathname is %s.\n",path);
   /* level 3 only */
   // if not super user and uid is not matched
   if(running->uid  && running->uid != mip->INODE.i_uid)
@@ -776,6 +779,7 @@ int rmdir()
     return -1;
   }
 
+
   printf("we pass the test.\n");
   for(i = 0; i < 12; i++){
     if(mip->INODE.i_block[i] == 0)
@@ -789,13 +793,15 @@ int rmdir()
   findino(mip,&ino,&parent);
   pip = iget(mip->dev,parent);
 
-  if(findparent(pathname))
-    my_name = basename(pathname);
+  printf("path name is %s\n",path);
+  if(findparent(path))
+    my_name = basename(path);
   else{
-    my_name = (char *)malloc((strlen(pathname)+1)*sizeof(char));
-    strcpy(my_name,pathname);
+    my_name = (char *)malloc((strlen(path)+1)*sizeof(char));
+    strcpy(my_name,path);
   }
  
+  printf("my_name is %s\n",my_name);
   rm_child(pip,my_name);
   pip->INODE.i_links_count--;
   pip->INODE.i_atime = pip->INODE.i_mtime = time(0L);
@@ -845,7 +851,7 @@ int isEmpty(MINODE *mip)
 
 int rm_child(MINODE *parent, char *my_name)
 {
-  int i,j, total_length,next_length,removed_length;
+  int i,j, total_length,next_length,removed_length,previous_length;
   char *cp, *cNext;
   DIR *dNext;
   char buf[BLOCK_SIZE],namebuf[256],temp[BLOCK_SIZE];
@@ -864,7 +870,8 @@ int rm_child(MINODE *parent, char *my_name)
 	      strncpy(namebuf,dp->name,dp->name_len);
 	      namebuf[dp->name_len] = 0;
 	      total_length+= dp->rec_len;
-	     
+	      printf("name is %s\n",namebuf);
+	      printf("length is %d\n",dp->rec_len);
 	      // found my_name
 	      if(!strcmp(namebuf,my_name))
 		{
@@ -877,9 +884,11 @@ int rm_child(MINODE *parent, char *my_name)
 		      if(total_length == BLOCK_SIZE)
 			{
 			  removed_length = dp->rec_len;
-			  cp-= dp->rec_len;
+			  cp-= previous_length;
 			  dp=(DIR *)cp;
 			  dp->rec_len += removed_length;
+			  strncpy(namebuf,dp->name,dp->name_len);
+			  namebuf[dp->name_len] = 0;
 			  put_block(parent->dev,parent->INODE.i_block[i],buf);
 			  return 0;
 			}
@@ -926,6 +935,7 @@ int rm_child(MINODE *parent, char *my_name)
 		    }
 		}
 	      j++;
+	      previous_length = dp->rec_len;
 	      cp+=dp->rec_len;
 	      dp = (DIR *)cp;
 	    }
