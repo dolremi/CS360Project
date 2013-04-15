@@ -717,3 +717,213 @@ int my_creat(MINODE *pip, char *name)
 
   return 0;
 }
+
+void do_rmdir()
+{
+  if(rmdir() < 0)
+    printf("can't rmdir.\n");
+}
+
+
+int rmdir()
+{
+  int dev,i;
+  unsigned long parent,ino;
+  char *my_name;
+  MINODE *mip,*pip;
+
+  dev = running->cwd->dev; 
+  ino = getino(&dev,pathname);
+  mip = iget(dev,ino);
+ 
+  /* level 3 only */
+  // if not super user and uid is not matched
+  if(running->uid  && running->uid != mip->INODE.i_uid)
+    {
+      printf("Error! The user mode doesn't match.\n");     
+      return -1;
+    } 
+  
+  // if(!mip->mounted)
+  //     mount();
+
+  /**********************************************/
+  // check if not DIR || busy || not empty
+  if((mip->INODE.i_mode) & 0040000 != 0040000)
+    {
+      printf("invalid pathname.\n");
+      iput(mip);
+      return -1;
+    }
+
+  if(mip->refCount>1)
+    {
+      printf("DIR is being used.\n");
+      iput(mip);
+      return -1;
+    }
+
+  if(!isEmpty(mip)) {
+    printf("DIR not empty\n");
+    iput(mip);
+    return -1;
+  }
+
+  for(i = 0; i < 12; i++){
+    if(mip->INODE.i_block[i] == 0)
+      continue;
+    bdealloc(mip->dev, mip->INODE.i_block[i]);
+  }
+
+  idealloc(mip->dev,mip->ino);
+  iput(mip);
+
+  findino(mip,&ino,&parent);
+  pip = iget(mip->dev,parent);
+
+  if(findparent(pathname))
+    my_name = basename(pathname);
+  else{
+    my_name = (char *)malloc((strlen(pathname)+1)*sizeof(char));
+    strcpy(my_name,pathname);
+  }
+ 
+  rm_child(pip,my_name);
+  pip->INODE.i_links_count--;
+  pip->INODE.i_atime = pip->INODE.i_mtime = time(0L);
+  pip->dirty = 1;
+  iput(pip);
+  return 0;
+}
+
+// return 0 for not empty
+int isEmpty(MINODE *mip)
+{
+  int i;
+  char *cp;
+  char buf[BLOCK_SIZE],namebuf[256];
+
+  if(mip->INODE.i_links_count > 2)
+    return 0;
+
+  if(mip->INODE.i_links_count == 2)
+    {
+      for(i = 0; i < 12; i++)
+	{
+	  if(mip->INODE.i_block[i])
+	    {
+	      get_block(mip->dev,mip->INODE.i_block[i],buf); 
+	      cp = buf;
+	      dp = (DIR *)buf;
+
+	      while(cp < &buf[BLOCK_SIZE])
+		{
+		  strncpy(namebuf,dp->name,dp->name_len);
+		  namebuf[dp->name_len] = 0;
+
+		  if(strcmp(namebuf,".")&&strcmp(namebuf,".."))
+		    return 0;
+
+		  cp+=dp->rec_len;
+		  dp=(DIR *)cp;
+		}
+	    }
+	 
+	}
+
+      return 1;
+    }
+}
+
+int rm_child(MINODE *parent, char *my_name)
+{
+  int i,j, total_length,next_length,removed_length;
+  char *cp, *cNext;
+  DIR *dNext;
+  char buf[BLOCK_SIZE],namebuf[256],temp[BLOCK_SIZE];
+
+  for(i = 0; i < 12 ; i++ )
+    {
+      if(parent->INODE.i_block[i])
+	{
+	  get_block(parent->dev,parent->INODE.i_block[i],buf);
+	  dp=(DIR *)buf;
+	  cp = buf;
+	  j = 0;
+	  total_length = 0;
+	  while(cp < &buf[BLOCK_SIZE])
+	    {
+	      strncpy(namebuf,dp->name,dp->name_len);
+	      namebuf[dp->name_len] = 0;
+	      total_length+= dp->rec_len;
+	     
+	      // found my_name
+	      if(!strcmp(namebuf,my_name))
+		{
+		  
+		  // if not first entry in data block
+		  if(j)
+		    {
+                 
+		      // if my_name at the last entry in the data block
+		      if(total_length == BLOCK_SIZE)
+			{
+			  removed_length = dp->rec_len;
+			  cp-= dp->rec_len;
+			  dp=(DIR *)cp;
+			  dp->rec_len += removed_length;
+			  put_block(parent->dev,parent->INODE.i_block[i],buf);
+			  return 0;
+			}
+
+		      // my_name is not at the last entry in the data block
+		      // move following entries forward in the data block
+		      removed_length = dp->rec_len;
+		      cNext = cp + dp->rec_len;
+		      dNext = (DIR *)cNext;
+		      while(total_length + dNext->rec_len < BLOCK_SIZE)
+			{
+			  total_length += dNext->rec_len;
+			  next_length = dNext->rec_len;
+			  dp->inode = dNext->inode;
+			  dp->rec_len = dNext->rec_len;
+			  dp->name_len = dNext->name_len;
+			  strncpy(dp->name,dNext->name,dNext->name_len);
+			  dp->name[dp->name_len] = 0;
+			  cNext += next_length;
+			  dNext = (DIR *)cNext;
+			  cp+= next_length;
+			  dp = (DIR *)cp;
+			 
+			}
+		      dp->inode = dNext->inode;
+		      dp->rec_len = dNext->rec_len + removed_length;
+		      dp->name_len = dNext->name_len;
+		      strncpy(namebuf,dNext->name,dNext->name_len);
+		      namebuf[dp->name_len] = 0;
+		      strcpy(dp->name,namebuf);
+			 
+		      put_block(parent->dev,parent->INODE.i_block[i],buf);
+		      return 0;
+		    }
+		  else
+		    {
+		    
+		      bdealloc(parent->dev,parent->INODE.i_block[i]);
+		      memset(temp,0,BLOCK_SIZE);
+		      put_block(parent->dev,parent->INODE.i_block[i],temp);
+		      parent->INODE.i_size-=BLOCK_SIZE;
+		      parent->INODE.i_block[i] = 0;
+		      return 0;
+		    }
+		}
+	      j++;
+	      cp+=dp->rec_len;
+	      dp = (DIR *)cp;
+	    }
+
+	}
+    }
+  return -1;
+
+}

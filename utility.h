@@ -35,10 +35,10 @@ int findino(MINODE *mip, unsigned long *myino, unsigned long *parentino);
 
 // allocate the inode in the disk
 unsigned long ialloc(int dev);
-/*
+
 // deallocate the inode and write back to the disk
-unsigned long idealloc(int dev, unsigned long ino)
-*/
+unsigned long idealloc(int dev, unsigned long ino);
+
 // allocate the block in the disk
 unsigned long balloc(int dev);
 
@@ -55,7 +55,7 @@ void incFreeInodes(int dev);
 void incFreeBlocks(int dev);
 
 // deacllocate the block on the device 
-unsigned long bdealloc(int dev, unsigned long iblock)
+unsigned long bdealloc(int dev, unsigned long iblock);
 
 // test BITs
 int tst_bit(char *buf, int BIT);
