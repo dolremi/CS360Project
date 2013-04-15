@@ -741,7 +741,7 @@ int rmdir()
     return -1;
 
   mip = iget(dev,ino);
- 
+  printf("dev is now %d, ino is %d.\n",mip->dev, ino);
   /* level 3 only */
   // if not super user and uid is not matched
   if(running->uid  && running->uid != mip->INODE.i_uid)
@@ -753,9 +753,10 @@ int rmdir()
   // if(!mip->mounted)
   //     mount();
 
+ 
   /**********************************************/
   // check if not DIR || busy || not empty
-  if((mip->INODE.i_mode) & 0040000 != 0040000)
+  if(((mip->INODE.i_mode)&0040000) != 0040000)
     {
       printf("invalid pathname.\n");
       iput(mip);
@@ -775,6 +776,7 @@ int rmdir()
     return -1;
   }
 
+  printf("we pass the test.\n");
   for(i = 0; i < 12; i++){
     if(mip->INODE.i_block[i] == 0)
       continue;
