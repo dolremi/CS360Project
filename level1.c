@@ -377,11 +377,14 @@ int make_dir()
   MINODE *pip;
   char path[256];
   char *parent, *child;
- 
-  printf("mkdir : input pathname :");
-  fgets(path,256,stdin);
-  path[strlen(path)-1] = 0;
-
+  if(pathname[0] == 0)
+    { 
+      printf("mkdir : input pathname :");
+      fgets(path,256,stdin);
+      path[strlen(path)-1] = 0;
+    }
+  else
+    strcpy(path, pathname);
 
   //check if it is absolute path to determine where the inode comes from
   if(path[0] == '/')
@@ -572,10 +575,14 @@ int creat_file()
   char path[256];
   char *parent, *child;
  
-  printf("input filename :");
-  fgets(path,256,stdin);
-  path[strlen(path)-1] = 0;
-
+  if(pathname[0] == 0)
+    { 
+      printf("input filename :");
+      fgets(path,256,stdin);
+      path[strlen(path)-1] = 0;
+    }
+  else
+    strcpy(path,pathname);
 
   //check if it is absolute path to determine where the inode comes from
   if(path[0] == '/')

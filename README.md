@@ -9,9 +9,9 @@ cd
 mkdir
 stat
 creat
+rmdir
 
 The function needs to be fixed
-rmdir
 rm
 mv
 link
