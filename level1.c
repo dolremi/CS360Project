@@ -743,8 +743,7 @@ int rmdir()
     return -1;
 
   mip = iget(dev,ino);
-  printf("dev is now %d, ino is %d.\n",mip->dev, ino);
-  printf("pathname is %s.\n",path);
+  
   /* level 3 only */
   // if not super user and uid is not matched
   if(running->uid  && running->uid != mip->INODE.i_uid)
