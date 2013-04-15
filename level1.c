@@ -734,6 +734,12 @@ int rmdir()
 
   dev = running->cwd->dev; 
   ino = getino(&dev,pathname);
+
+
+  // path doesn't exist
+  if(ino == 0)
+    return -1;
+
   mip = iget(dev,ino);
  
   /* level 3 only */
