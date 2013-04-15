@@ -99,15 +99,17 @@ unsigned long  getino(int *device, char *pathname){
       if(inumber == 0)
 	{
 	  printf("%s does not exist.\n",name[i]);
+	  iput(mip);
 	  return 0;
 	}
 	  
       if((mip->INODE.i_mode & 0040000) != 0040000)
 	{
 	  printf(" %s is not a directory!\n",name[i]);
+	  iput(mip);
 	  return 0;
 	}
-	    
+      iput(mip);
     }
 
   return inumber;
@@ -151,6 +153,7 @@ MINODE * iget(int dev, unsigned long ino){
   char buf[BLOCK_SIZE];
   for(i = 0; i < NMINODES; i++)
     {
+     
       if(minode[i].dev == dev && minode[i].ino == ino && minode[i].refCount > 0)
 	{
 	  minode[i].refCount++;
@@ -158,7 +161,7 @@ MINODE * iget(int dev, unsigned long ino){
 	}
     }
 
-  for(i = 0; i < NMINODES; i++)
+   for(i = 0; i < NMINODES; i++)
     {
       if(minode[i].refCount == 0)
 	{

@@ -743,7 +743,7 @@ int rmdir()
     return -1;
 
   mip = iget(dev,ino);
-  
+ 
   /* level 3 only */
   // if not super user and uid is not matched
   if(running->uid  && running->uid != mip->INODE.i_uid)
@@ -779,7 +779,6 @@ int rmdir()
   }
 
 
-  printf("we pass the test.\n");
   for(i = 0; i < 12; i++){
     if(mip->INODE.i_block[i] == 0)
       continue;
@@ -792,15 +791,13 @@ int rmdir()
   findino(mip,&ino,&parent);
   pip = iget(mip->dev,parent);
 
-  printf("path name is %s\n",path);
   if(findparent(path))
     my_name = basename(path);
   else{
     my_name = (char *)malloc((strlen(path)+1)*sizeof(char));
     strcpy(my_name,path);
   }
- 
-  printf("my_name is %s\n",my_name);
+  
   rm_child(pip,my_name);
   pip->INODE.i_links_count--;
   pip->INODE.i_atime = pip->INODE.i_mtime = time(0L);
@@ -869,8 +866,7 @@ int rm_child(MINODE *parent, char *my_name)
 	      strncpy(namebuf,dp->name,dp->name_len);
 	      namebuf[dp->name_len] = 0;
 	      total_length+= dp->rec_len;
-	      printf("name is %s\n",namebuf);
-	      printf("length is %d\n",dp->rec_len);
+
 	      // found my_name
 	      if(!strcmp(namebuf,my_name))
 		{
