@@ -14,8 +14,8 @@ void main()
     fgets(line,128,stdin);
     line[strlen(line)-1] = 0;
     if(line[0] == 0) continue;
-    pathname[0] =0;
-    parameter[0] = 0;
+
+    clearInput();
     sscanf(line, "%s %s %64c",cname, pathname, parameter);
 
     checkFunct(cname);

@@ -9,3 +9,5 @@ extern functionTable myTable[];
 
 
 int checkFunct(char *command);
+
+void clearInput();

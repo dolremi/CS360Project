@@ -48,3 +48,9 @@ int rm_child(MINODE *parent, char *my_name);
 void do_link();
 
 int link();
+
+void do_unlink();
+
+int unlink();
+
+void do_rm();

@@ -958,7 +958,7 @@ int link()
 {
   char OldPath[256],NewPath[256],parent[256],child[256], paths[256],buf[BLOCK_SIZE],buf2[BLOCK_SIZE];
   unsigned long inumber,oldIno;
-  int dev,i,rec_length,need_length,ideal_length,datab;
+  int dev,newDev,i,rec_length,need_length,ideal_length,datab;
   MINODE *mip;
   char *cp;
   DIR *dirp;
@@ -995,19 +995,25 @@ int link()
 	}
        
       iput(mip);
-
+      newDev = running->cwd->dev;
       if(findparent(NewPath))
 	{
 	  strcpy(parent,dirname(NewPath));
 	  strcpy(child,basename(NewPath));
 
 	  strcpy(paths,parent);
-	  inumber = getino(&dev,paths);
+	  inumber = getino(&newDev,paths);
      
 	  if(inumber == 0)
 	    return -1;
-	   
-	  mip = iget(dev,inumber);
+	  
+	  if(newDev != dev)
+	    {
+	      printf("not on the same device.\n");
+	      return -1;
+	    }
+ 
+	  mip = iget(newDev,inumber);
 
 	  // make sure parent is DIR file
 	  if(((mip->INODE.i_mode)&0040000)!= 0040000)  
@@ -1026,6 +1032,13 @@ int link()
 	{
 	  strcpy(parent,".");
 	  strcpy(child,NewPath);
+
+	  if(running->cwd->dev != dev)
+	    {
+	      printf("not on the same device.\n");
+	      return -1;
+	    }
+
 	  if(search(running->cwd,child))
 	    {
 	      printf("%s already exists.\n",child);
@@ -1104,4 +1117,127 @@ int link()
       return 0;
 }
 
+void do_unlink()
+{
 
+  if(unlink() < 0)
+    printf("can't unlink\n");
+}
+
+void do_rm()
+{
+  if(unlink()< 0)
+    printf("can't rm\n");
+}
+
+int unlink()
+{
+  char path[256],parent[256],child[256];
+  MINODE *mip;
+  int dev,i,m,l;
+  int *k,*j,*t;
+  int block[15];
+  char buf[BLOCK_SIZE],buf2[BLOCK_SIZE];
+  unsigned long inumber;
+
+  if(pathname[0] == 0)
+    {
+      printf("input pathname: ");
+      fgets(pathname,256,stdin);
+    }
+
+  dev = root->dev;
+  strcpy(path,pathname);
+  inumber = getino(&dev,path);
+  if(inumber == 0)
+    return -1;
+
+  mip = iget(dev, inumber);
+
+  // make sure it is REG file
+  if(((mip->INODE.i_mode)&0100000)!= 0100000)
+    {
+      printf("%s is not REG file.\n",path);
+      return -1;
+    }
+
+  mip->INODE.i_links_count--;
+
+  /* DISK BLOCK deallocation  */
+
+  for(i = 0; i <= 14; i++)
+    block[i] = mip->INODE.i_block[i];
+
+  // directed block
+  for(i = 0; i <=11; i++)
+    {
+      if(block[i])
+	bdealloc(mip->dev,block[i]);
+    }
+
+  // indirect block
+  if(block[12])
+    {
+      get_block(mip->dev,block[12],buf);
+      k = (int *)buf;
+      for(i = 0; i < 256; i++)
+	{
+	  if(*k)
+	    bdealloc(mip->dev,*k);
+	  k++;
+	}
+    }
+
+  // double indirect
+  if(block[13])
+    {
+      get_block(mip->dev,block[13],buf);
+      t = (int *)buf;
+      for(i = 0; i < 256 ; i++)
+	{
+	  if(*t)
+	    {
+	      get_block(mip->dev, *t,buf2);
+	      j = (int *)buf2;
+	      for(m = 0; m < 256; m++)
+		{
+		  if(*j)
+		    bdealloc(mip->dev,*j);
+		  j++;
+		}
+	    }
+	  t++;
+	}
+    }
+ 
+  // deallocate its INODE
+  idealloc(mip->dev, mip->ino);
+  iput(mip);
+
+   if(findparent(pathname))
+     {
+       strcpy(parent,dirname(pathname));
+       strcpy(child,basename(pathname));
+       strcpy(path,parent);
+       inumber = getino(&dev,path);
+       mip = iget(dev,inumber);
+     }
+   else{
+     strcpy(parent,".");
+     strcpy(child,pathname);
+
+     mip = iget(running->cwd->dev,running->cwd->ino);
+   }
+
+   printf("parent=%s  child=%s\n",parent,child);
+
+   rm_child(mip,child);
+   mip->INODE.i_links_count--;
+
+   printf("inode's link_count=%d\n",mip->INODE.i_links_count);
+   mip->INODE.i_atime=mip->INODE.i_mtime = time(0L);
+   mip->dirty = 1;
+   iput(mip);
+
+   return 0;
+}
