@@ -947,3 +947,87 @@ int rm_child(MINODE *parent, char *my_name)
   return -1;
 
 }
+
+void do_link()
+{
+  if(link() < 0)
+    printf("can't link\n");
+}
+
+int link()
+{
+  char OldPath[256],NewPath[256],parent[256],child[256], paths[256];
+  unsigned long inumber,oldIno;
+  int dev;
+  MINODE *mip;
+
+  if(pathname[0] == 0 || parameter[0] == 0) 
+    {
+      printf("input OLD_filename: ");
+      fgets(OldPath,256,stdin);
+      OldPath[strlen(OldPath)-1] = 0;
+      printf("input NEW_filename: ");
+      fgets(NewPath,256,stdin);
+      NewPath[strlen(NewPath)-1] = 0;
+    }
+  else
+    {
+      strcpy(OldPath,pathname);
+      strcpy(NewPath,parameter);
+    }
+      printf("link: %s %s\n",OldPath,NewPath);
+    
+      dev = root->dev;
+      strcpy(paths,OldPath);
+      oldIno = getino(&dev,paths);
+      if(oldIno == 0)
+	  return -1;
+
+      mip = iget(dev,oldIno);
+
+      // make sure it is REG file
+      if(((mip->INODE.i_mode)&0100000)!= 0100000)  
+	{
+	  printf("%s is not REG file.\n",OldPath);
+	  return -1;
+	}
+       
+      iput(mip);
+
+      if(findparent(NewPath))
+	{
+	  strcpy(parent,dirname(NewPath));
+	  strcpy(child,basename(NewPath));
+
+	  strcpy(paths,parent);
+	  inumber = getino(&dev,paths);
+     
+	  if(inumber == 0)
+	    return -1;
+	   
+	  mip = iget(dev,inumber);
+
+	  // make sure parent is DIR file
+	  if(((mip->INODE.i_mode)&0040000)!= 0040000)  
+	    {
+	      printf("%s is not DIR file.\n",parent);
+	      return -1;
+	    }
+
+	  if(search(mip,child))
+	    {
+	      printf("%s already exists.\n",child);
+	      return -1;
+	    }
+	}
+      else
+	{
+	  strcpy(parent,".");
+	  strcpy(child,NewPath);
+	  if(search(running->cwd,child))
+	    {
+	      printf("%s already exists.\n",child);
+	      return -1;
+	    }
+	}
+}
