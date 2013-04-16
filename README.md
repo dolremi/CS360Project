@@ -10,9 +10,11 @@ mkdir
 stat
 creat
 rmdir
-
-The function needs to be fixed
-rm
-mv
+unlink
 link
 symlink
+
+The function needs to be fixed
+mv
+
+
