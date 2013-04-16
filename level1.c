@@ -1033,7 +1033,9 @@ int link()
 	    }
 	  mip = iget(running->cwd->dev,running->cwd->ino);
 	}
-      
+
+      printf("parent=%s  child=%s\n",parent,child);     
+ 
       // add an entry to the parent's data block
       i = 0;
       while(mip->INODE.i_block[i])
@@ -1096,7 +1098,7 @@ int link()
       mip->INODE.i_links_count++;
       mip->INODE.i_atime = time(0L);
       mip->dirty = 1;
- 
+      printf("inode's link_count=%d\n",mip->INODE.i_links_count);
       iput(mip);
 
       return 0;
