@@ -527,7 +527,7 @@ int my_mkdir(MINODE *pip, char *name)
       dp = (DIR *)cp;
       dp->rec_len = rec_length - ideal_length;
       dp->name_len = strlen(name);
-      strcpy(dp->name,name);
+      strncpy(dp->name,name,dp->name_len);
       dp->inode = inumber;
     
       // write the new block back to the disk
@@ -545,7 +545,7 @@ int my_mkdir(MINODE *pip, char *name)
     dirp = (DIR *)buf2;
     dirp->rec_len = BLOCK_SIZE;
     dirp->name_len = strlen(name);
-    strcpy(dirp->name,name);
+    strncpy(dirp->name,name,dirp->name_len);
     dirp->inode = inumber;
 
   // write the new block back to the disk
@@ -690,7 +690,7 @@ int my_creat(MINODE *pip, char *name)
       dp = (DIR *)cp;
       dp->rec_len = rec_length - ideal_length;
       dp->name_len = strlen(name);
-      strcpy(dp->name,name);
+      strncpy(dp->name,name,dp->name_len);
       dp->inode = inumber;
     
       // write the new block back to the disk
@@ -708,7 +708,7 @@ int my_creat(MINODE *pip, char *name)
     dirp = (DIR *)buf2;
     dirp->rec_len = BLOCK_SIZE;
     dirp->name_len = strlen(name);
-    strcpy(dirp->name,name);
+    strncpy(dirp->name,name,dirp->name_len);
     dirp->inode = inumber;
 
   // write the new block back to the disk
@@ -956,10 +956,12 @@ void do_link()
 
 int link()
 {
-  char OldPath[256],NewPath[256],parent[256],child[256], paths[256];
+  char OldPath[256],NewPath[256],parent[256],child[256], paths[256],buf[BLOCK_SIZE],buf2[BLOCK_SIZE];
   unsigned long inumber,oldIno;
-  int dev;
+  int dev,i,rec_length,need_length,ideal_length,datab;
   MINODE *mip;
+  char *cp;
+  DIR *dirp;
 
   if(pathname[0] == 0 || parameter[0] == 0) 
     {
@@ -1029,5 +1031,75 @@ int link()
 	      printf("%s already exists.\n",child);
 	      return -1;
 	    }
+	  mip = iget(running->cwd->dev,running->cwd->ino);
 	}
+      
+      // add an entry to the parent's data block
+      i = 0;
+      while(mip->INODE.i_block[i])
+	i++;
+  
+      i--;  
+ 
+      get_block(mip->dev,mip->INODE.i_block[i],buf);
+      dp = (DIR *)buf;
+      cp = buf;
+      rec_length = 0;
+
+      // step to the last entry in a data block
+      while(dp->rec_len + rec_length < BLOCK_SIZE)
+	{
+	  rec_length+=dp->rec_len;
+	  cp += dp->rec_len;
+	  dp = (DIR *)cp;
+	}
+
+      need_length = 4 * ((8 + strlen(child) + 3)/4);
+      ideal_length = 4 *((8 + dp->name_len +3)/4);
+      rec_length = dp->rec_len;
+
+      // check if it can enter the new entry as the last entry
+      if((rec_length - ideal_length) >=need_length)
+	{
+	  // trim the previous entry to its ideal_length
+	  dp->rec_len = ideal_length;
+	  cp+=dp->rec_len;
+	  dp = (DIR *)cp;
+	  dp->rec_len = rec_length - ideal_length;
+	  dp->name_len = strlen(child);
+	  strncpy(dp->name,child,dp->name_len);
+	  dp->inode = oldIno;
+    
+	  // write the new block back to the disk
+	  put_block(mip->dev,mip->INODE.i_block[i],buf);
+  
+	}
+      else{
+	// otherwise allocate a new data block 
+	i++;
+	datab = balloc(mip->dev);
+	mip->INODE.i_block[i] = datab;
+	get_block(mip->dev, datab, buf2);
+
+	// enter the new entry as the first entry 
+	dirp = (DIR *)buf2;
+	dirp->rec_len = BLOCK_SIZE;
+	dirp->name_len = strlen(child);
+	strncpy(dirp->name,child,dirp->name_len);
+	dirp->inode = oldIno;
+
+	// write the new block back to the disk
+	put_block(mip->dev,mip->INODE.i_block[i],buf2);
+   
+      }
+
+      mip->INODE.i_links_count++;
+      mip->INODE.i_atime = time(0L);
+      mip->dirty = 1;
+ 
+      iput(mip);
+
+      return 0;
 }
+
+

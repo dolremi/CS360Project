@@ -3,6 +3,7 @@
 #include "level1test.h"
 
 functionTable myTable[] ={
+   {"link",do_link},
    {"rmdir",do_rmdir},
    {"stat",stats},
    {"creat",do_creat},

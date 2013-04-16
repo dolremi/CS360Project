@@ -44,3 +44,7 @@ void do_rmdir();
 int rmdir();
 
 int rm_child(MINODE *parent, char *my_name);
+
+void do_link();
+
+int link();
