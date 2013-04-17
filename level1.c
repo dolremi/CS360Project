@@ -1170,7 +1170,7 @@ int unlink()
   mip = iget(dev, inumber);
 
   // make sure it is FILE
-  if(((mip->INODE.i_mode)&0100000)== 0100000)
+  if(((mip->INODE.i_mode)&0040000)== 0040000)
     {
       printf("%s is not a REG file.\n",pathname);
       iput(mip);
