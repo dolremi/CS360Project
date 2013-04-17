@@ -1163,7 +1163,6 @@ int unlink()
  
   dev = root->dev;
   strcpy(path,pathname);
-  printf("Now pathname is %s\n",path);
   inumber = getino(&dev,path);
   if(inumber == 0)
     return -1;
@@ -1378,4 +1377,74 @@ int symlink()
       mip->dirty = 1;
       iput(mip);
       return r;
+}
+
+void touch()
+{
+  if(do_touch() < 0)
+    printf("can't touch\n");
+}
+
+int do_touch()
+{
+  int dev,inumber;
+  MINODE *mip;
+
+  if(pathname[0] == 0)
+    {
+      printf("input pathname: ");
+      fgets(pathname,256,stdin);
+      pathname[strlen(pathname)-1] = 0;
+    }
+
+  dev = root->dev;
+  inumber = getino(&dev,pathname);
+
+  if(inumber == 0)
+    return -1;
+
+  mip = iget(dev,inumber);
+
+  mip->INODE.i_atime = mip->INODE.i_mtime = time(0L);
+  mip->dirty = 1;
+
+  iput(mip);
+
+  return 0;
+}
+
+void chgmod()
+{
+  if(do_chmod() < 0)
+    printf("can't change mode\n");
+}
+
+int do_chmod()
+{
+  int mode, dev,inumber;
+  MINODE *mip;
+
+  if(pathname[0] == 0 || parameter[0] == 0)
+    {
+      printf("input pathname: ");
+      fgets(pathname,256,stdin);
+      pathname[strlen(pathname)-1] = 0;
+      printf("input the new mode: ");
+      fgets(parameter,256,stdin);
+      parameter[strlen(parameter)-1] = 0;
+    }
+
+  sscanf(parameter,"%x",&mode);
+  dev = root->dev;
+  inumber = getino(&dev,pathname);
+
+  if(inumber == 0)
+    return -1;
+
+  mip = iget(dev,inumber);
+
+  mip->INODE.i_mode = mode;
+  mip->dirty = 1;
+
+  iput(mip);
 }

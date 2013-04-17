@@ -58,3 +58,11 @@ void do_rm();
 void do_symlink();
 
 int symlink();
+
+void touch();
+
+int do_touch();
+
+void chgmod();
+
+int do_chmod();

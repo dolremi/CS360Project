@@ -3,6 +3,8 @@
 #include "level1test.h"
 
 functionTable myTable[] ={
+  {"chmod",chgmod},
+  {"touch",touch},
   {"symlink",do_symlink},
   {"rm",do_rm},
   {"unlink",do_unlink},
