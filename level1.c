@@ -352,8 +352,13 @@ void printChild(int devicename, MINODE *mp)
 
 	      printf(" %4d %d %d %d",temp->INODE.i_links_count, temp->INODE.i_uid,temp->INODE.i_gid, temp->INODE.i_size);
 	      	   
-	      printf(" %s %s\n",ctime(&(temp->INODE.i_atime)),namebuf);
+	      printf(" %s %s",ctime(&(temp->INODE.i_atime)),namebuf);
 	      
+	      if((mode & 0120000) == 0120000)
+		printf(" => %s\n",(char *)(temp->INODE.i_block));
+	      else
+		printf("\n");
+
 	      iput(temp);
 		
 	      cp+=dirp->rec_len;
@@ -1155,18 +1160,20 @@ int unlink()
       pathname[strlen(pathname)-1] = 0;
     }
 
+ 
   dev = root->dev;
   strcpy(path,pathname);
+  printf("Now pathname is %s\n",path);
   inumber = getino(&dev,path);
   if(inumber == 0)
     return -1;
 
   mip = iget(dev, inumber);
 
-  // make sure it is REG file
-  if(((mip->INODE.i_mode)&0040000)== 0040000)
+  // make sure it is FILE
+  if(((mip->INODE.i_mode)&0100000)== 0100000)
     {
-      printf("%s is not a FILE.\n",path);
+      printf("%s is not a REG file.\n",pathname);
       iput(mip);
       return -1;
     }
@@ -1294,9 +1301,9 @@ int symlink()
       mip = iget(dev,inumber);
 
       // make sure it is REG file
-      if(((mip->INODE.i_mode)&0100000)!= 0100000 && (((mip->INODE.i_mode)&0040000)!= 0040000) && (((mip->INODE.i_mode)&0120000)!= 0120000))  
+      if(((mip->INODE.i_mode)&0100000)!= 0100000 && (((mip->INODE.i_mode)&0040000)!= 0040000))  
 	{
-	  printf("%s is not a FILE or DIR.\n",OldPath);
+	  printf("%s is not a REG file or DIR.\n",OldPath);
 	  iput(mip);
 	  return -1;
 	}
@@ -1368,6 +1375,7 @@ int symlink()
       printf("size=%d ",mip->INODE.i_size);
       printf("refCount=%d\n",mip->refCount);
       printf("symlink %s %s OK\n",OldPath,NewPath);
+      mip->dirty = 1;
       iput(mip);
       return r;
 }
