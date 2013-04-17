@@ -415,12 +415,14 @@ int make_dir()
   if((pip->INODE.i_mode & 0040000) != 0040000) 
     {
       printf("%s is not a directory.\n",parent);
+      iput(pip);
       return -1;
     }
   
   if(search(pip,child))
     {
       printf("%s already exists.\n",child);
+      iput(pip);
       return -1;
     }
   r = my_mkdir(pip, child);
@@ -613,12 +615,14 @@ int creat_file()
   if((pip->INODE.i_mode & 0040000) != 0040000) 
     {
       printf("%s is not a directory.\n",parent);
+      iput(pip);
       return -1;
     }
   
   if(search(pip,child))
     {
       printf("%s already exists.\n",child);
+      iput(pip);
       return -1;
     }
   r = my_creat(pip, child);
@@ -755,7 +759,8 @@ int rmdir()
   // if not super user and uid is not matched
   if(running->uid  && running->uid != mip->INODE.i_uid)
     {
-      printf("Error! The user mode doesn't match.\n");     
+      printf("Error! The user mode doesn't match.\n");
+      iput(mip);     
       return -1;
     } 
   
@@ -991,6 +996,7 @@ int link()
       if(((mip->INODE.i_mode)&0100000)!= 0100000)  
 	{
 	  printf("%s is not REG file.\n",OldPath);
+	  iput(mip);
 	  return -1;
 	}
        
@@ -1019,12 +1025,14 @@ int link()
 	  if(((mip->INODE.i_mode)&0040000)!= 0040000)  
 	    {
 	      printf("%s is not DIR file.\n",parent);
+	      iput(mip);
 	      return -1;
 	    }
 
 	  if(search(mip,child))
 	    {
 	      printf("%s already exists.\n",child);
+	      iput(mip);
 	      return -1;
 	    }
 	}
@@ -1144,6 +1152,7 @@ int unlink()
     {
       printf("input pathname: ");
       fgets(pathname,256,stdin);
+      pathname[strlen(pathname)-1] = 0;
     }
 
   dev = root->dev;
@@ -1155,9 +1164,10 @@ int unlink()
   mip = iget(dev, inumber);
 
   // make sure it is REG file
-  if(((mip->INODE.i_mode)&0100000)!= 0100000)
+  if(((mip->INODE.i_mode)&0040000)== 0040000)
     {
-      printf("%s is not REG file.\n",path);
+      printf("%s is not a FILE.\n",path);
+      iput(mip);
       return -1;
     }
 
@@ -1240,4 +1250,124 @@ int unlink()
    iput(mip);
 
    return 0;
+}
+
+void do_symlink()
+{
+  if(symlink() < 0)
+    printf("can't symlink\n");
+}
+
+int symlink()
+{  
+  char OldPath[256],NewPath[256],paths[256],buf[BLOCK_SIZE];
+  unsigned long inumber;
+  int dev,i,r;
+  MINODE *mip,*pip;
+  char *cp, *parent, *child;
+  DIR *dirp;
+
+  if(pathname[0] == 0 || parameter[0] == 0) 
+    {
+      printf("input OLD_filename: ");
+      fgets(OldPath,256,stdin);
+      OldPath[strlen(OldPath)-1] = 0;
+      printf("input NEW_filename: ");
+      fgets(NewPath,256,stdin);
+      NewPath[strlen(NewPath)-1] = 0;
+    }
+  else
+    {
+      strcpy(OldPath,pathname);
+      strcpy(NewPath,parameter);
+    }
+      printf("symlink: %s %s\n",OldPath,NewPath);
+    
+      dev = root->dev;
+      strcpy(paths,OldPath);
+      inumber = getino(&dev,paths);
+      
+      // file does not exist
+      if(inumber == 0)
+	  return -1;
+
+      mip = iget(dev,inumber);
+
+      // make sure it is REG file
+      if(((mip->INODE.i_mode)&0100000)!= 0100000 && (((mip->INODE.i_mode)&0040000)!= 0040000) && (((mip->INODE.i_mode)&0120000)!= 0120000))  
+	{
+	  printf("%s is not a FILE or DIR.\n",OldPath);
+	  iput(mip);
+	  return -1;
+	}
+       
+      iput(mip);
+
+      if(NewPath[0] == '/')
+	dev = root->dev;
+      else
+	dev = running->cwd->dev;
+ 
+   
+      if(findparent(NewPath))
+	{  
+	  parent = dirname(NewPath);
+	  child = basename(NewPath);
+	  strcpy(paths,parent);
+	  inumber = getino(&dev, paths);
+	  
+	  if(inumber == 0)
+	    return -1;
+
+	  pip = iget(dev,inumber);
+	}
+      else
+	{
+	  pip = iget(running->cwd->dev,running->cwd->ino);
+	  child = (char *)malloc((strlen(NewPath) + 1)*sizeof(char));
+	  strcpy(child, NewPath);
+	  parent = (char *)malloc(2*sizeof(char));
+	  strcpy(parent,".");
+	}
+
+      printf("parent=%s  child=%s\n",parent,child);
+
+      if((pip->INODE.i_mode & 0040000) != 0040000) 
+	{
+	  printf("%s is not a directory.\n",parent);
+	  iput(pip);
+	  return -1;
+	}
+  
+      if(search(pip,child))
+	{
+	  printf("%s already exists.\n",child);
+	  iput(pip);
+	  return -1;
+	}
+
+      printf("CALL MYCREAT\n");
+      r = my_creat(pip, child);
+      printf("AFTER CREAT\n");
+      printf("now pathname is %s\n",NewPath);
+      // get the new path into memory
+      strcpy(paths,NewPath);
+      inumber = getino(&dev,paths);
+
+      if(inumber == 0)
+	return -1;
+      printf("ndev=%d ino=%d\n",dev,inumber);
+      printf("pathname=%s\n",OldPath);
+      mip = iget(dev,inumber);
+      mip->INODE.i_mode = 0xA1FF;
+      strcpy((char *)(mip->INODE.i_block),OldPath);
+      printf("iblock=%s\n",(char *)(mip->INODE.i_block));
+      printf("name=%s ",OldPath);
+      printf("type=%4x ",mip->INODE.i_mode);
+      mip->INODE.i_size = strlen(OldPath);
+      printf("size=%d ",mip->INODE.i_size);
+      printf("refCount=%d\n",mip->refCount);
+      printf("symlink %s %s OK\n",OldPath,NewPath);
+      iput(mip);
+      return r;
 }

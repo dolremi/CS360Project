@@ -54,3 +54,7 @@ void do_unlink();
 int unlink();
 
 void do_rm();
+
+void do_symlink();
+
+int symlink();

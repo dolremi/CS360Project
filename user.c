@@ -3,6 +3,7 @@
 #include "level1test.h"
 
 functionTable myTable[] ={
+  {"symlink",do_symlink},
   {"rm",do_rm},
   {"unlink",do_unlink},
   {"link",do_link},
