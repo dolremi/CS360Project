@@ -66,3 +66,11 @@ int do_touch();
 void chgmod();
 
 int do_chmod();
+
+void chown();
+
+int do_chown();
+
+void chgrp();
+
+int do_chgrp();

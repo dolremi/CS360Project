@@ -1448,3 +1448,75 @@ int do_chmod()
 
   iput(mip);
 }
+
+void chown()
+{
+  if(do_chown() < 0)
+    printf("can't change the owner\n");
+}
+
+int do_chown()
+{
+  int owner, dev,inumber;
+  MINODE *mip;
+
+  if(pathname[0] == 0 || parameter[0] == 0)
+    {
+      printf("input pathname: ");
+      fgets(pathname,256,stdin);
+      pathname[strlen(pathname)-1] = 0;
+      printf("input the new owner: ");
+      fgets(parameter,256,stdin);
+      parameter[strlen(parameter)-1] = 0;
+    }
+
+  sscanf(parameter,"%d",&owner);
+  dev = root->dev;
+  inumber = getino(&dev,pathname);
+
+  if(inumber == 0)
+    return -1;
+
+  mip = iget(dev,inumber);
+
+  mip->INODE.i_uid = owner;
+  mip->dirty = 1;
+
+  iput(mip);
+}
+
+void chgrp()
+{
+  if(do_chgrp() < 0)
+    printf("can't change the owner\n");
+}
+
+int do_chgrp()
+{
+  int group, dev,inumber;
+  MINODE *mip;
+
+  if(pathname[0] == 0 || parameter[0] == 0)
+    {
+      printf("input pathname: ");
+      fgets(pathname,256,stdin);
+      pathname[strlen(pathname)-1] = 0;
+      printf("input the new group: ");
+      fgets(parameter,256,stdin);
+      parameter[strlen(parameter)-1] = 0;
+    }
+
+  sscanf(parameter,"%d",&group);
+  dev = root->dev;
+  inumber = getino(&dev,pathname);
+
+  if(inumber == 0)
+    return -1;
+
+  mip = iget(dev,inumber);
+
+  mip->INODE.i_gid = group;
+  mip->dirty = 1;
+
+  iput(mip);
+}
