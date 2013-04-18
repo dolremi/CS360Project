@@ -126,6 +126,7 @@ void do_pwd(MINODE *wd)
   do_pwd(wd);
   findmyname(wd,myino,myname);
   printf("/%s",myname);
+  iput(wd);
 }
 
 void cd()
@@ -350,10 +351,11 @@ void printChild(int devicename, MINODE *mp)
 		printf("-");
 
 
-	      printf(" %4d %d %d %d",temp->INODE.i_links_count, temp->INODE.i_uid,temp->INODE.i_gid, temp->INODE.i_size);
+	      printf(" %d %d %d %d",temp->INODE.i_links_count, temp->INODE.i_uid,temp->INODE.i_gid, temp->INODE.i_size);
 	      	   
 	      printf(" %s %s",ctime(&(temp->INODE.i_atime)),namebuf);
 	      
+	      // if symblink needs to the file link to 
 	      if((mode & 0120000) == 0120000)
 		printf(" => %s\n",(char *)(temp->INODE.i_block));
 	      else
@@ -380,29 +382,28 @@ int make_dir()
 {
   int ino, r,dev;
   MINODE *pip;
-  char path[256];
   char *parent, *child;
   if(pathname[0] == 0)
     { 
       printf("mkdir : input pathname :");
-      fgets(path,256,stdin);
-      path[strlen(path)-1] = 0;
+      fgets(pathname,256,stdin);
+      pathname[strlen(pathname)-1] = 0;
     }
-  else
-    strcpy(path, pathname);
+ 
 
   //check if it is absolute path to determine where the inode comes from
-  if(path[0] == '/')
+  if(pathname[0] == '/')
     dev = root->dev;
   else
     dev = running->cwd->dev;
  
    
-  if(findparent(path))
+  if(findparent(pathname))
     {  
-      parent = dirname(path);
-      child = basename(path);
+      parent = dirname(pathname);
+      child = basename(pathname);
       ino = getino(&dev, parent);
+
       if(ino == 0)
 	return -1;
       pip = iget(dev,ino);
@@ -411,8 +412,8 @@ int make_dir()
   else
     {
       pip = iget(running->cwd->dev,running->cwd->ino);
-      child = (char *)malloc((strlen(path) + 1)*sizeof(char));
-      strcpy(child, path);
+      child = (char *)malloc((strlen(pathname) + 1)*sizeof(char));
+      strcpy(child, pathname);
     }
 
 
@@ -430,6 +431,7 @@ int make_dir()
       iput(pip);
       return -1;
     }
+
   r = my_mkdir(pip, child);
 
   return r;
@@ -579,29 +581,27 @@ int creat_file()
 {
   int ino,r,dev;
   MINODE *pip;
-  char path[256];
   char *parent, *child;
  
   if(pathname[0] == 0)
     { 
       printf("input filename :");
-      fgets(path,256,stdin);
-      path[strlen(path)-1] = 0;
+      fgets(pathname,256,stdin);
+      pathname[strlen(pathname)-1] = 0;
     }
-  else
-    strcpy(path,pathname);
+ 
 
   //check if it is absolute path to determine where the inode comes from
-  if(path[0] == '/')
+  if(pathname[0] == '/')
     dev = root->dev;
   else
     dev = running->cwd->dev;
  
    
-  if(findparent(path))
+  if(findparent(pathname))
     {  
-      parent = dirname(path);
-      child = basename(path);
+      parent = dirname(pathname);
+      child = basename(pathname);
       ino = getino(&dev, parent);
       if(ino == 0)
 	return -1;
@@ -611,8 +611,8 @@ int creat_file()
   else
     {
       pip = iget(running->cwd->dev,running->cwd->ino);
-      child = (char *)malloc((strlen(path) + 1)*sizeof(char));
-      strcpy(child, path);
+      child = (char *)malloc((strlen(pathname) + 1)*sizeof(char));
+      strcpy(child, pathname);
     }
 
 
@@ -630,6 +630,7 @@ int creat_file()
       iput(pip);
       return -1;
     }
+
   r = my_creat(pip, child);
 
   return r;

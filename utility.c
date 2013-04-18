@@ -51,7 +51,6 @@ char *dirname(char *pathname)
   dir[i] = 0;
   } 
 
-  
   return dir;
 }
 
@@ -71,12 +70,12 @@ char *basename(char *pathname)
 unsigned long  getino(int *device, char *pathname){
   int i,n;
   unsigned long inumber;
-  char buf[BLOCK_SIZE];
+  char buf[BLOCK_SIZE],path[256];
   char firstC;
   MINODE *mip;
  
 
-  // start from the INODE of root OR CWD 
+  // start from the INODE of root OR CWD level1 implementation 
   if(pathname[0] == '/')
     {
       *device = root->dev;
@@ -84,11 +83,13 @@ unsigned long  getino(int *device, char *pathname){
     }
   else
     {
-      *device = running-> cwd ->dev;
+      *device = running->cwd->dev;
       inumber = running->cwd->ino;
     }
  
-   n = token_path(pathname);
+  // keep the pathname
+  strcpy(path,pathname);
+  n = token_path(path);
       
   for(i = 0; i < n ; i++)
     {
@@ -124,7 +125,7 @@ unsigned long  search(MINODE * mip, char *filename)
   
   for(i = 0; i <= 11 ; i ++)
     {
-      if(mip->INODE.i_block[i] != 0)
+      if(mip->INODE.i_block[i])
 	{
 	 
 	  get_block(mip->dev, mip->INODE.i_block[i], buf);
@@ -153,12 +154,13 @@ MINODE * iget(int dev, unsigned long ino){
   char buf[BLOCK_SIZE];
   for(i = 0; i < NMINODES; i++)
     {
-     
-      if(minode[i].dev == dev && minode[i].ino == ino && minode[i].refCount > 0)
-	{
-	  minode[i].refCount++;
-	  return &minode[i];
-	}
+      if(minode[i].refCount){
+	if(minode[i].dev == dev && minode[i].ino == ino)
+	  {
+	    minode[i].refCount++;
+	    return &minode[i];
+	  }
+      }
     }
 
    for(i = 0; i < NMINODES; i++)
@@ -176,7 +178,6 @@ MINODE * iget(int dev, unsigned long ino){
 	  minode[i].ino = ino;
 	  minode[i].refCount = 1;
 	  minode[i].dirty = 0;
-	  minode[i].mounted = 1;
 	  return &minode[i];
 	}
     }
@@ -186,6 +187,7 @@ void iput(MINODE *mip){
 
   int nodeIndex,blockIndex;
   char buf[BLOCK_SIZE];
+
   mip->refCount--;
  
   // some other PROC still used it
@@ -196,7 +198,7 @@ void iput(MINODE *mip){
   if(mip->dirty == 0)
     return;
 
-//Now the INODE has been modified and no other PROC used it
+  //Now the INODE has been modified and no other PROC used it
   
   //here comes the Mailman's Algorithm
   nodeIndex = (mip->ino -1 ) % INODES_PER_BLOCK;
@@ -273,6 +275,7 @@ unsigned long ialloc(int dev)
   get_block(dev,SUPERBLOCK,buf);
   temp = (SUPER *)buf;
   ninodes = temp->s_inodes_count;
+  put_block(dev,SUPERBLOCK,buf);
 
   get_block(dev, IBITMAP,buf);
 
@@ -286,6 +289,7 @@ unsigned long ialloc(int dev)
 	return i+1;
       }
     }
+  
   return 0;
 
 }
@@ -315,6 +319,7 @@ unsigned long balloc(int dev)
   get_block(dev,SUPERBLOCK,buf);
   temp = (SUPER *)buf;
   nblocks = temp->s_blocks_count;
+  put_block(dev,SUPERBLOCK,buf);
 
   get_block(dev, BBITMAP,buf);
 
