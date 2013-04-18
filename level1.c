@@ -1144,7 +1144,8 @@ int link()
   mip->INODE.i_links_count++;
   mip->INODE.i_atime = mip->INODE.i_mtime = time(0L);
   printf("inode's link_count=%d\n",mip->INODE.i_links_count);
- 
+  mip->dirty = 1;
+  iput(mip);
 
   return 0;
 }
@@ -1179,10 +1180,13 @@ int unlink()
       pathname[strlen(pathname)-1] = 0;
     }
 
+  //check if it is absolute path to determine where the inode comes from
+  if(pathname[0] == '/')
+    dev = root->dev;
+  else
+    dev = running->cwd->dev;
  
-  dev = root->dev;
-  strcpy(path,pathname);
-  inumber = getino(&dev,path);
+  inumber = getino(&dev,pathname);
   if(inumber == 0)
     return -1;
 
@@ -1198,83 +1202,83 @@ int unlink()
 
   mip->INODE.i_links_count--;
 
-  /* DISK BLOCK deallocation  */
+  // if no links ==> rm
+  if(mip->INODE.i_links_count==0)
+  {
+    /* DISK BLOCK deallocation  */
+    for(i = 0; i <= 14; i++)
+      block[i] = mip->INODE.i_block[i];
 
-  for(i = 0; i <= 14; i++)
-    block[i] = mip->INODE.i_block[i];
+    // directed block
+    for(i = 0; i <=11; i++)
+      {
+	if(block[i])
+	    bdealloc(mip->dev,block[i]);
+      }
 
-  // directed block
-  for(i = 0; i <=11; i++)
-    {
-      if(block[i])
-	bdealloc(mip->dev,block[i]);
-    }
+    // indirect block
+    if(block[12])
+      {
+	get_block(mip->dev,block[12],buf);
+	k = (int *)buf;
+	for(i = 0; i < 256; i++)
+	  {
+	    if(*k)
+	      bdealloc(mip->dev,*k);
+	    k++;
+	  }
+      }
 
-  // indirect block
-  if(block[12])
-    {
-      get_block(mip->dev,block[12],buf);
-      k = (int *)buf;
-      for(i = 0; i < 256; i++)
-	{
-	  if(*k)
-	    bdealloc(mip->dev,*k);
-	  k++;
-	}
-    }
-
-  // double indirect
-  if(block[13])
-    {
-      get_block(mip->dev,block[13],buf);
-      t = (int *)buf;
-      for(i = 0; i < 256 ; i++)
-	{
-	  if(*t)
-	    {
-	      get_block(mip->dev, *t,buf2);
-	      j = (int *)buf2;
-	      for(m = 0; m < 256; m++)
-		{
-		  if(*j)
-		    bdealloc(mip->dev,*j);
-		  j++;
-		}
-	    }
-	  t++;
-	}
-    }
+    // double indirect
+    if(block[13])
+      {
+	get_block(mip->dev,block[13],buf);
+	t = (int *)buf;
+	for(i = 0; i < 256 ; i++)
+	  {
+	    if(*t)
+	      {
+		get_block(mip->dev, *t,buf2);
+		j = (int *)buf2;
+		for(m = 0; m < 256; m++)
+		  {
+		    if(*j)
+		      bdealloc(mip->dev,*j);
+		    j++;
+		  }
+	      }
+	    t++;
+	  }
+      }
  
-  // deallocate its INODE
-  idealloc(mip->dev, mip->ino);
+    // deallocate its INODE
+    idealloc(mip->dev, mip->ino);
+  }
+  printf("inode's link_count=%d\n",mip->INODE.i_links_count);
+  mip->dirty = 1;
   iput(mip);
 
-   if(findparent(pathname))
-     {
-       strcpy(parent,dirname(pathname));
-       strcpy(child,basename(pathname));
-       strcpy(path,parent);
-       inumber = getino(&dev,path);
-       mip = iget(dev,inumber);
-     }
-   else{
-     strcpy(parent,".");
-     strcpy(child,pathname);
+  if(findparent(pathname))
+    {
+      strcpy(parent,dirname(pathname));
+      strcpy(child,basename(pathname));
+      inumber = getino(&dev,parent);
+      mip = iget(dev,inumber);
+    }
+  else{
+    strcpy(parent,".");
+    strcpy(child,pathname);
+    mip = iget(running->cwd->dev,running->cwd->ino);
+  }
 
-     mip = iget(running->cwd->dev,running->cwd->ino);
-   }
+  printf("parent=%s  child=%s\n",parent,child);
 
-   printf("parent=%s  child=%s\n",parent,child);
+  rm_child(mip,child);
+  mip->INODE.i_atime=mip->INODE.i_mtime = time(0L);
+  mip->dirty = 1;
+  iput(mip);
 
-   rm_child(mip,child);
-   mip->INODE.i_links_count--;
-
-   printf("inode's link_count=%d\n",mip->INODE.i_links_count);
-   mip->INODE.i_atime=mip->INODE.i_mtime = time(0L);
-   mip->dirty = 1;
-   iput(mip);
-
-   return 0;
+  return 0;
 }
 
 void do_symlink()
@@ -1285,7 +1289,7 @@ void do_symlink()
 
 int symlink()
 {  
-  char OldPath[256],NewPath[256],paths[256],buf[BLOCK_SIZE];
+  char buf[BLOCK_SIZE];
   unsigned long inumber;
   int dev,i,r;
   MINODE *mip,*pip;
@@ -1295,22 +1299,21 @@ int symlink()
   if(pathname[0] == 0 || parameter[0] == 0) 
     {
       printf("input OLD_filename: ");
-      fgets(OldPath,256,stdin);
-      OldPath[strlen(OldPath)-1] = 0;
+      fgets(pathname,256,stdin);
+      pathname[strlen(pathname)-1] = 0;
       printf("input NEW_filename: ");
-      fgets(NewPath,256,stdin);
-      NewPath[strlen(NewPath)-1] = 0;
+      fgets(parameter,256,stdin);
+      parameter[strlen(parameter)-1] = 0;
     }
-  else
-    {
-      strcpy(OldPath,pathname);
-      strcpy(NewPath,parameter);
-    }
-      printf("symlink: %s %s\n",OldPath,NewPath);
+ 
+      printf("symlink: %s %s\n",pathname,parameter);
     
-      dev = root->dev;
-      strcpy(paths,OldPath);
-      inumber = getino(&dev,paths);
+      if(pathname[0] == '/')
+	dev = root->dev;
+      else
+	dev = running->cwd->dev;
+ 
+      inumber = getino(&dev,pathname);
       
       // file does not exist
       if(inumber == 0)
@@ -1321,25 +1324,24 @@ int symlink()
       // make sure it is REG file
       if(((mip->INODE.i_mode)&0100000)!= 0100000 && (((mip->INODE.i_mode)&0040000)!= 0040000))  
 	{
-	  printf("%s is not a REG file or DIR.\n",OldPath);
+	  printf("%s is not a REG file or DIR.\n",pathname);
 	  iput(mip);
 	  return -1;
 	}
        
       iput(mip);
 
-      if(NewPath[0] == '/')
+      if(parameter[0] == '/')
 	dev = root->dev;
       else
 	dev = running->cwd->dev;
  
    
-      if(findparent(NewPath))
+      if(findparent(parameter))
 	{  
-	  parent = dirname(NewPath);
-	  child = basename(NewPath);
-	  strcpy(paths,parent);
-	  inumber = getino(&dev, paths);
+	  parent = dirname(parameter);
+	  child = basename(parameter);
+	  inumber = getino(&dev, parent);
 	  
 	  if(inumber == 0)
 	    return -1;
@@ -1349,8 +1351,8 @@ int symlink()
       else
 	{
 	  pip = iget(running->cwd->dev,running->cwd->ino);
-	  child = (char *)malloc((strlen(NewPath) + 1)*sizeof(char));
-	  strcpy(child, NewPath);
+	  child = (char *)malloc((strlen(parameter) + 1)*sizeof(char));
+	  strcpy(child, parameter);
 	  parent = (char *)malloc(2*sizeof(char));
 	  strcpy(parent,".");
 	}
@@ -1374,25 +1376,25 @@ int symlink()
       printf("CALL MYCREAT\n");
       r = my_creat(pip, child);
       printf("AFTER CREAT\n");
-      printf("now pathname is %s\n",NewPath);
+     
       // get the new path into memory
-      strcpy(paths,NewPath);
-      inumber = getino(&dev,paths);
+      inumber = getino(&dev,parameter);
 
       if(inumber == 0)
 	return -1;
+
       printf("ndev=%d ino=%d\n",dev,inumber);
-      printf("pathname=%s\n",OldPath);
+      printf("pathname=%s\n",pathname);
       mip = iget(dev,inumber);
       mip->INODE.i_mode = 0xA1FF;
-      strcpy((char *)(mip->INODE.i_block),OldPath);
+      strcpy((char *)(mip->INODE.i_block),pathname);
       printf("iblock=%s\n",(char *)(mip->INODE.i_block));
-      printf("name=%s ",OldPath);
+      printf("name=%s ",pathname);
       printf("type=%4x ",mip->INODE.i_mode);
-      mip->INODE.i_size = strlen(OldPath);
+      mip->INODE.i_size = strlen(pathname);
       printf("size=%d ",mip->INODE.i_size);
       printf("refCount=%d\n",mip->refCount);
-      printf("symlink %s %s OK\n",OldPath,NewPath);
+      printf("symlink %s %s OK\n",pathname,parameter);
       mip->dirty = 1;
       iput(mip);
       return r;
