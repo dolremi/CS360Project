@@ -748,10 +748,21 @@ int rmdir()
   unsigned long parent,ino;
   char *my_name;
   MINODE *mip,*pip;
-  char path[256]; 
+ 
+ if(pathname[0] == 0)
+    { 
+      printf("input filename :");
+      fgets(pathname,256,stdin);
+      pathname[strlen(pathname)-1] = 0;
+    }
+ 
 
-  strcpy(path, pathname);
-  dev = running->cwd->dev; 
+  //check if it is absolute path to determine where the inode comes from
+  if(pathname[0] == '/')
+    dev = root->dev;
+  else
+    dev = running->cwd->dev;
+  
   ino = getino(&dev,pathname);
 
 
@@ -809,11 +820,11 @@ int rmdir()
   findino(mip,&ino,&parent);
   pip = iget(mip->dev,parent);
 
-  if(findparent(path))
-    my_name = basename(path);
+  if(findparent(pathname))
+    my_name = basename(pathname);
   else{
-    my_name = (char *)malloc((strlen(path)+1)*sizeof(char));
-    strcpy(my_name,path);
+    my_name = (char *)malloc((strlen(pathname)+1)*sizeof(char));
+    strcpy(my_name,pathname);
   }
   
   rm_child(pip,my_name);
@@ -900,8 +911,6 @@ int rm_child(MINODE *parent, char *my_name)
 			  cp-= previous_length;
 			  dp=(DIR *)cp;
 			  dp->rec_len += removed_length;
-			  strncpy(namebuf,dp->name,dp->name_len);
-			  namebuf[dp->name_len] = 0;
 			  put_block(parent->dev,parent->INODE.i_block[i],buf);
 			  return 0;
 			}
@@ -919,7 +928,6 @@ int rm_child(MINODE *parent, char *my_name)
 			  dp->rec_len = dNext->rec_len;
 			  dp->name_len = dNext->name_len;
 			  strncpy(dp->name,dNext->name,dNext->name_len);
-			  dp->name[dp->name_len] = 0;
 			  cNext += next_length;
 			  dNext = (DIR *)cNext;
 			  cp+= next_length;
@@ -929,10 +937,7 @@ int rm_child(MINODE *parent, char *my_name)
 		      dp->inode = dNext->inode;
 		      dp->rec_len = dNext->rec_len + removed_length;
 		      dp->name_len = dNext->name_len;
-		      strncpy(namebuf,dNext->name,dNext->name_len);
-		      namebuf[dp->name_len] = 0;
-		      strcpy(dp->name,namebuf);
-			 
+		      strncpy(dp->name,dNext->name,dNext->name_len);
 		      put_block(parent->dev,parent->INODE.i_block[i],buf);
 		      return 0;
 		    }
