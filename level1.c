@@ -226,7 +226,7 @@ int do_stat(char *path, struct stat *stPtr)
   printf("gid=%d   ",stPtr->st_gid);
   printf("nlink=%d\n",stPtr->st_nlink);
   printf("size=%d ",stPtr->st_size); 
-  printf("time=%s\n",ctime(&(stPtr->st_ctime)));
+  printf("time=%s\n",ctime(&(stPtr->st_mtime)));
   printf("**************************\n");
  
   iput(mip);
@@ -353,7 +353,7 @@ void printChild(int devicename, MINODE *mp)
 
 	      printf(" %d %d %d %d",temp->INODE.i_links_count, temp->INODE.i_uid,temp->INODE.i_gid, temp->INODE.i_size);
 	      	   
-	      printf(" %s %s",ctime(&(temp->INODE.i_atime)),namebuf);
+	      printf(" %s %s",ctime(&(temp->INODE.i_mtime)),namebuf);
 	      
 	      // if symblink needs to the file link to 
 	      if((mode & 0120000) == 0120000)
