@@ -557,6 +557,7 @@ int my_mkdir(MINODE *pip, char *name)
     strncpy(dirp->name,name,dirp->name_len);
     dirp->inode = inumber;
 
+    pip->INODE.i_size += BLOCK_SIZE;
   // write the new block back to the disk
     put_block(pip->dev,pip->INODE.i_block[i],buf2);
    
@@ -714,6 +715,7 @@ int my_creat(MINODE *pip, char *name)
     pip->INODE.i_block[i] = datab;
     get_block(pip->dev, datab, buf2);
 
+    pip->INODE.i_size += BLOCK_SIZE;
     // enter the new entry as the first entry 
     dirp = (DIR *)buf2;
     dirp->rec_len = BLOCK_SIZE;
@@ -726,7 +728,6 @@ int my_creat(MINODE *pip, char *name)
    
   }
 
-  pip->INODE.i_links_count++;
   pip->INODE.i_atime = time(0L);
   pip->dirty = 1;
  
@@ -972,7 +973,7 @@ void do_link()
 
 int link()
 {
-  char OldPath[256],NewPath[256],parent[256],child[256], paths[256],buf[BLOCK_SIZE],buf2[BLOCK_SIZE];
+  char parent[256],child[256],buf[BLOCK_SIZE],buf2[BLOCK_SIZE];
   unsigned long inumber,oldIno;
   int dev,newDev,i,rec_length,need_length,ideal_length,datab;
   MINODE *mip;
@@ -982,158 +983,170 @@ int link()
   if(pathname[0] == 0 || parameter[0] == 0) 
     {
       printf("input OLD_filename: ");
-      fgets(OldPath,256,stdin);
-      OldPath[strlen(OldPath)-1] = 0;
+      fgets(pathname,256,stdin);
+      pathname[strlen(pathname)-1] = 0;
       printf("input NEW_filename: ");
-      fgets(NewPath,256,stdin);
-      NewPath[strlen(NewPath)-1] = 0;
+      fgets(parameter,256,stdin);
+      parameter[strlen(parameter)-1] = 0;
     }
-  else
-    {
-      strcpy(OldPath,pathname);
-      strcpy(NewPath,parameter);
-    }
-      printf("link: %s %s\n",OldPath,NewPath);
+  
+  printf("link: %s %s\n",pathname,parameter);
     
-      dev = root->dev;
-      strcpy(paths,OldPath);
-      oldIno = getino(&dev,paths);
-      if(oldIno == 0)
-	  return -1;
+  //check if it is absolute path to determine where the inode comes from
+  if(pathname[0] == '/')
+    dev = root->dev;
+  else
+    dev = running->cwd->dev;
+ 
+  oldIno = getino(&dev,pathname);
+  
+  if(oldIno == 0)
+    return -1;
 
-      mip = iget(dev,oldIno);
+  mip = iget(dev,oldIno);
 
-      // make sure it is REG file
-      if(((mip->INODE.i_mode)&0100000)!= 0100000)  
+  // make sure it is REG file
+  if(((mip->INODE.i_mode)&0100000)!= 0100000)  
+    {
+      printf("%s is not REG file.\n",pathname);
+      iput(mip);
+      return -1;
+    }
+       
+  iput(mip);
+  
+  if(parameter[0] == '/')
+    newDev = root->dev;
+  else
+    newDev = running->cwd->dev;
+ 
+
+   
+  if(findparent(parameter))
+    {
+      strcpy(parent,dirname(parameter));
+      strcpy(child,basename(parameter));
+
+    
+      inumber = getino(&newDev,parent);
+     
+      if(inumber == 0)
+	return -1;
+	  
+      if(newDev != dev)
 	{
-	  printf("%s is not REG file.\n",OldPath);
+	  printf("not on the same device.\n");
+	  return -1;
+	}
+ 
+      mip = iget(newDev,inumber);
+
+      // make sure parent is DIR file
+      if(((mip->INODE.i_mode)&0040000)!= 0040000)  
+	{
+	  printf("%s is not DIR file.\n",parent);
 	  iput(mip);
 	  return -1;
 	}
-       
-      iput(mip);
-      newDev = running->cwd->dev;
-      if(findparent(NewPath))
+
+      // make sure child does not exist in parent DIR
+      if(search(mip,child))
 	{
-	  strcpy(parent,dirname(NewPath));
-	  strcpy(child,basename(NewPath));
-
-	  strcpy(paths,parent);
-	  inumber = getino(&newDev,paths);
-     
-	  if(inumber == 0)
-	    return -1;
-	  
-	  if(newDev != dev)
-	    {
-	      printf("not on the same device.\n");
-	      return -1;
-	    }
- 
-	  mip = iget(newDev,inumber);
-
-	  // make sure parent is DIR file
-	  if(((mip->INODE.i_mode)&0040000)!= 0040000)  
-	    {
-	      printf("%s is not DIR file.\n",parent);
-	      iput(mip);
-	      return -1;
-	    }
-
-	  if(search(mip,child))
-	    {
-	      printf("%s already exists.\n",child);
-	      iput(mip);
-	      return -1;
-	    }
+	  printf("%s already exists.\n",child);
+	  iput(mip);
+	  return -1;
 	}
-      else
+    }
+  else
+    {
+      strcpy(parent,".");
+      strcpy(child,parameter);
+
+      if(running->cwd->dev != dev)
 	{
-	  strcpy(parent,".");
-	  strcpy(child,NewPath);
-
-	  if(running->cwd->dev != dev)
-	    {
-	      printf("not on the same device.\n");
-	      return -1;
-	    }
-
-	  if(search(running->cwd,child))
-	    {
-	      printf("%s already exists.\n",child);
-	      return -1;
-	    }
-	  mip = iget(running->cwd->dev,running->cwd->ino);
+	  printf("not on the same device.\n");
+	  return -1;
 	}
 
-      printf("parent=%s  child=%s\n",parent,child);     
+      if(search(running->cwd,child))
+	{
+	  printf("%s already exists.\n",child);
+	  return -1;
+	}
+      mip = iget(running->cwd->dev,running->cwd->ino);
+    }
+
+  printf("parent=%s  child=%s\n",parent,child);     
  
-      // add an entry to the parent's data block
-      i = 0;
-      while(mip->INODE.i_block[i])
-	i++;
+  // add an entry to the parent's data block
+  i = 0;
+  while(mip->INODE.i_block[i])
+    i++;
   
-      i--;  
+  i--;  
  
-      get_block(mip->dev,mip->INODE.i_block[i],buf);
-      dp = (DIR *)buf;
-      cp = buf;
-      rec_length = 0;
+  get_block(mip->dev,mip->INODE.i_block[i],buf);
+  dp = (DIR *)buf;
+  cp = buf;
+  rec_length = 0;
 
-      // step to the last entry in a data block
-      while(dp->rec_len + rec_length < BLOCK_SIZE)
-	{
-	  rec_length+=dp->rec_len;
-	  cp += dp->rec_len;
-	  dp = (DIR *)cp;
-	}
+  // step to the last entry in a data block
+  while(dp->rec_len + rec_length < BLOCK_SIZE)
+    {
+      rec_length+=dp->rec_len;
+      cp += dp->rec_len;
+      dp = (DIR *)cp;
+    }
 
-      need_length = 4 * ((8 + strlen(child) + 3)/4);
-      ideal_length = 4 *((8 + dp->name_len +3)/4);
-      rec_length = dp->rec_len;
+  need_length = 4 * ((8 + strlen(child) + 3)/4);
+  ideal_length = 4 *((8 + dp->name_len +3)/4);
+  rec_length = dp->rec_len;
 
       // check if it can enter the new entry as the last entry
-      if((rec_length - ideal_length) >=need_length)
-	{
-	  // trim the previous entry to its ideal_length
-	  dp->rec_len = ideal_length;
-	  cp+=dp->rec_len;
-	  dp = (DIR *)cp;
-	  dp->rec_len = rec_length - ideal_length;
-	  dp->name_len = strlen(child);
-	  strncpy(dp->name,child,dp->name_len);
-	  dp->inode = oldIno;
-    
-	  // write the new block back to the disk
-	  put_block(mip->dev,mip->INODE.i_block[i],buf);
+  if((rec_length - ideal_length) >=need_length)
+    {
+      // trim the previous entry to its ideal_length
+      dp->rec_len = ideal_length;
+      cp+=dp->rec_len;
+      dp = (DIR *)cp;
+      dp->rec_len = rec_length - ideal_length;
+      dp->name_len = strlen(child);
+      strncpy(dp->name,child,dp->name_len);
+      dp->inode = oldIno;
+	  
+      // write the new block back to the disk
+      put_block(mip->dev,mip->INODE.i_block[i],buf);
   
-	}
-      else{
-	// otherwise allocate a new data block 
-	i++;
-	datab = balloc(mip->dev);
-	mip->INODE.i_block[i] = datab;
-	get_block(mip->dev, datab, buf2);
+    }
+  else{
+    // otherwise allocate a new data block 
+    i++;
+    datab = balloc(mip->dev);
+    mip->INODE.i_block[i] = datab;
+    get_block(mip->dev, datab, buf2);
 
-	// enter the new entry as the first entry 
-	dirp = (DIR *)buf2;
-	dirp->rec_len = BLOCK_SIZE;
-	dirp->name_len = strlen(child);
-	strncpy(dirp->name,child,dirp->name_len);
-	dirp->inode = oldIno;
-
-	// write the new block back to the disk
-	put_block(mip->dev,mip->INODE.i_block[i],buf2);
+    // enter the new entry as the first entry 
+    dirp = (DIR *)buf2;
+    dirp->rec_len = BLOCK_SIZE;
+    dirp->name_len = strlen(child);
+    strncpy(dirp->name,child,dirp->name_len);
+    dirp->inode = oldIno;
+    mip->INODE.i_size += BLOCK_SIZE;
+    // write the new block back to the disk
+    put_block(mip->dev,mip->INODE.i_block[i],buf2);
    
-      }
+  }
 
-      mip->INODE.i_links_count++;
-      mip->INODE.i_atime = time(0L);
-      mip->dirty = 1;
-      printf("inode's link_count=%d\n",mip->INODE.i_links_count);
-      iput(mip);
+  mip->INODE.i_atime = time(0L);
+  mip->dirty = 1;
+  iput(mip);
+  mip= iget(newDev, oldIno);
+  mip->INODE.i_links_count++;
+  mip->INODE.i_atime = mip->INODE.i_mtime = time(0L);
+  printf("inode's link_count=%d\n",mip->INODE.i_links_count);
+ 
 
-      return 0;
+  return 0;
 }
 
 void do_unlink()
