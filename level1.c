@@ -247,8 +247,9 @@ void ls()
 int do_ls(char *path)
 {
   unsigned long  ino;
-  MINODE *mip;
+  MINODE *mip,*pip;
   int device = running->cwd->dev;
+  char  *child;
 
   if(path[0] == 0)
     {
@@ -271,8 +272,14 @@ int do_ls(char *path)
 
       if(((mip->INODE.i_mode) & 0040000)!= 0040000)
 	{
-	  printf("%s is not a directory\n",pathname);
-	  iput(mip);
+	  printf("(%d %d) is a REG\n",device,ino);
+	  if(findparent(path))
+	    child = basename(pathname);
+	  else{
+	    child = (char *)malloc((strlen(pathname)+1)*sizeof(char));
+	    strcpy(child,path);
+	  }
+	  printFile(mip,child);
 	  return -1;
 	}
 
@@ -284,13 +291,87 @@ int do_ls(char *path)
 }
 
 
+void printFile(MINODE *mip, char *namebuf)
+{
+ 
+  unsigned short mode;
+  
+  mode = mip->INODE.i_mode;
+	     
+// print out info in the file as ls -l in linux
+ if((mode & 0120000) == 0120000)
+   printf("l");
+ else if((mode & 0040000) == 0040000)
+   printf("d");
+ else if((mode & 0100000) == 0100000)
+   printf("-");
+	   
+
+ if((mode & (1 << 8)))
+   printf("r");
+ else
+   printf("-");
+ 
+ if((mode & (1 << 7)) )
+   printf("w");
+ else
+   printf("-");
+ 
+ if((mode & (1 << 6)) )
+   printf("x");
+ else
+   printf("-");
+ 
+ if((mode & (1 << 5)) )
+   printf("r");
+ else
+   printf("-");
+
+ if((mode & ( 1 << 4)) )
+   printf("w");
+ else
+   printf("-");
+
+ if((mode & (1 << 3)) )
+   printf("x");
+ else
+   printf("-");
+	      
+ if((mode & (1 << 2)) )
+   printf("r");
+ else
+   printf("-");
+
+ if((mode & (1 << 1)) )
+   printf("w");
+ else
+   printf("-");
+ 
+ if(mode & 1)
+   printf("x");
+ else
+   printf("-");
+
+
+ printf(" %d %d %d %d",mip->INODE.i_links_count, mip->INODE.i_uid,mip->INODE.i_gid, mip->INODE.i_size);
+	      	   
+ printf(" %s %s",ctime(&(mip->INODE.i_mtime)),namebuf);
+	      
+ // if symblink needs to the file link to 
+ if((mode & 0120000) == 0120000)
+   printf(" => %s\n",(char *)(mip->INODE.i_block));
+ else
+   printf("\n");
+ 
+ iput(mip);
+} 
+
 void printChild(int devicename, MINODE *mp)
 {
 
   char buf[BLOCK_SIZE], namebuf[256];
   char *cp;
   DIR *dirp;
-  unsigned short mode;
   int i,ino;
   MINODE *temp;
 
@@ -309,75 +390,7 @@ void printChild(int devicename, MINODE *mp)
 	   	     
 	      ino = dirp->inode;
 	      temp = iget(devicename,ino); 
-	      mode = temp->INODE.i_mode;
-	     
-	      // print out info in the file as ls -l in linux
-	      if((mode & 0120000) == 0120000)
-		printf("l");
-	      else if((mode & 0040000) == 0040000)
-		printf("d");
-	      else if((mode & 0100000) == 0100000)
-		printf("-");
-	   
-
-	      if((mode & (1 << 8)))
-		printf("r");
-	      else
-		printf("-");
-
-	      if((mode & (1 << 7)) )
-		printf("w");
-	      else
-		printf("-");
-	      
-	      if((mode & (1 << 6)) )
-		printf("x");
-	      else
-		printf("-");
-
-	      if((mode & (1 << 5)) )
-		printf("r");
-	      else
-		printf("-");
-
-	      if((mode & ( 1 << 4)) )
-		printf("w");
-	      else
-		printf("-");
-
-	      if((mode & (1 << 3)) )
-		printf("x");
-	      else
-		printf("-");
-	      
-	      if((mode & (1 << 2)) )
-		printf("r");
-	      else
-		printf("-");
-
-	      if((mode & (1 << 1)) )
-		printf("w");
-	      else
-		printf("-");
-	      
-	      if(mode & 1)
-		printf("x");
-	      else
-		printf("-");
-
-
-	      printf(" %d %d %d %d",temp->INODE.i_links_count, temp->INODE.i_uid,temp->INODE.i_gid, temp->INODE.i_size);
-	      	   
-	      printf(" %s %s",ctime(&(temp->INODE.i_mtime)),namebuf);
-	      
-	      // if symblink needs to the file link to 
-	      if((mode & 0120000) == 0120000)
-		printf(" => %s\n",(char *)(temp->INODE.i_block));
-	      else
-		printf("\n");
-
-	      iput(temp);
-		
+	      printFile(temp,namebuf);		
 	      cp+=dirp->rec_len;
 	      dirp = (DIR *)cp;
 	    }

@@ -19,6 +19,8 @@ void ls();
 
 int do_ls();
 
+void printFile(MINODE *mip, char *namebuf);
+
 void printChild(int devicename, MINODE *mp);
 
 int my_mkdir(MINODE *pip, char *name);
