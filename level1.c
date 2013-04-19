@@ -193,8 +193,12 @@ int do_stat(char *path, struct stat *stPtr)
   // stat will default to cwd if no pathname specified
   if(path[0] == 0)
     ino = running->cwd->ino;
-  else
+  else{
+
+    if(path[0] == '/')
+      device = root->dev;
     ino = getino(&device,path);
+  }
 
   // no such path in the stat
   if(ino == 0)
@@ -236,7 +240,7 @@ int do_stat(char *path, struct stat *stPtr)
 void ls()
 {
   if(do_ls(pathname) < 0)
-    printf("ls : %s doesn't exist.\n",pathname);
+    printf("ls : invalid pathname.\n");
  
 }
 
@@ -253,6 +257,10 @@ int do_ls(char *path)
     }
   else
     {
+
+      if(path[0] == '/')
+	device = root->dev;
+  
       ino = getino(&device, path);
      
       // pathname doesn't exist
@@ -260,6 +268,14 @@ int do_ls(char *path)
 	return -1;
       
       mip = iget(device, ino);
+
+      if(((mip->INODE.i_mode) & 0040000)!= 0040000)
+	{
+	  printf("%s is not a directory\n",pathname);
+	  iput(mip);
+	  return -1;
+	}
+
       printChild(device, mip);
     }
 

@@ -1,6 +1,6 @@
 #include "type.h"
 #include "user.h"
-#include "level1test.h"
+#include "level1.h"
 
 functionTable myTable[] ={
   {"chgrp",chgrp},

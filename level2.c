@@ -11,7 +11,7 @@ void fileopen()
 
 int open_file()
 {
-  int mode;
+  int mode,filemode;
   MINODE *mip;
   Oft *Oftp;
   long unsigned dev;
@@ -34,15 +34,13 @@ int open_file()
 
   mip = iget(dev,ino); 
   
-  if ( ( mip->INODE.i_mode & 0100000) == 0100000)
-    {
-       printf("it is a regular file!!")
-    }
+ 
   if ( ( mip->INODE.i_mode & 0040000) == 0040000) /// DIR
     {
-       printf(" it is a dir file !!!");
-       return 0;
+      printf(" %s is a DIR file",pathname);
+      return -1;
     }
+
   //if ( (st_mode & (1 << 8)) ) // Owner can r
   //if ( (st_mode & (1 << 7)) ) // Owner can w
   //if ( (st_mode & (1 << 6)) ) // Owner can x
