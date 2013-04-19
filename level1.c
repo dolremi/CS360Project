@@ -3,7 +3,6 @@
 #include "utility.h"
 #include <stdlib.h>
 
-extern char pathname[256];
 
 void init(){
   int i = 0;
