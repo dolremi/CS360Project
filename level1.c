@@ -1,5 +1,5 @@
 #include "type.h"
-#include "level1test.h"
+#include "level1.h"
 #include "utility.h"
 #include <stdlib.h>
 
