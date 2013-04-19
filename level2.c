@@ -13,9 +13,8 @@ int open_file()
 {
   int mode,filemode;
   MINODE *mip;
-  Oft *Oftp;
+  OFT *Oftp;
   long unsigned dev;
-
 
   if(pathname[0] == 0 || parameter[0] == 0)
     { 
@@ -26,6 +25,11 @@ int open_file()
     sscanf(parameter, "%d",&mode);
 
   printf("pathname =%s mode =%d\n",pathname,mode);
+
+  if(pathname[0] = '/')
+    dev = root->dev;
+  else
+    dev = running->cwd->dev;
   
   ino = getino(&dev, pathname);
   
@@ -34,20 +38,33 @@ int open_file()
 
   mip = iget(dev,ino); 
   
- 
+  filemode = mip->INODE.i_mode;
   if ( ( mip->INODE.i_mode & 0040000) == 0040000) /// DIR
     {
-      printf(" %s is a DIR file",pathname);
+      printf("%s is a DIR file\n",pathname);
+      iput(mip);
+      return -1;
+    }
+  
+  if( mode >0 && mode < 4 && !(filemode &(1 << 7)))
+    {
+      printf("%s can't open for READ\n",pathname);
+      iput(mip);
       return -1;
     }
 
-  //if ( (st_mode & (1 << 8)) ) // Owner can r
-  //if ( (st_mode & (1 << 7)) ) // Owner can w
-  //if ( (st_mode & (1 << 6)) ) // Owner can x
-  oftp = malloc();       // get a FREE OFT
-  oftp->mode = mode;     // open mode 
+  if((mode == 0 || mode ==2) &&! (filemode & ( 1 << 8)))
+    {
+      printf("%s can't open for WRITE\n",pathname);
+      iput(mip);
+      return -1;
+    }
+ 
+  oftp =(OFT *) malloc(sizeof(OFT));       // get a FREE OFT
+  oftp->mode = mode;                       // open mode 
   oftp->refCount = 1;
-  oftp->inodeptr = mip;  // point at the file's minode[]
+  oftp->inodeptr = mip;                    // point at the file's minode[]
+ 
   switch(mode){
          case 0 : oftp->offset = 0; 
                   break;
@@ -66,21 +83,23 @@ int open_file()
 	i++;
   }
   running->fd[i]=oftp;
-  running->fd[i]->inodeptr->dirty=1;
-  running->fd[i]->inodeptr->INODE.i_atime = time(0L);
+  mip->INODE.i_atime = mip->INODE.i_mtime = time(0L);
+
+  if(mode)
+    mip->dirty = 1;
+ 
   return i;
 
 }
 
 void truncate(MINODE *mip)
 {
-  int i=0;
-  int m=0;
+  int i, m;
+  int block[15];
   int *k,*j,*t;
   char buf[BLOCK_SIZE],buf2[BLOCK_SIZE];
-  //1. release mip->INODE's data blocks;a file may have 12 direct blocks, 256 indirect blocks and 256*256double indirect data blocks. release them all.
-  //direct block
-  for(i = 0; i <= 14; i++)
+
+   for(i = 0; i <= 14; i++)
     block[i] = mip->INODE.i_block[i];
 
   // directed block
@@ -124,11 +143,19 @@ void truncate(MINODE *mip)
 	  t++;
 	}
     }
-  //2. update INODE's time field
-  mip->INODE.i_atime = time(0L);
-  //3. set INODE's size to 0 and mark Minode[ ] dirty
+ 
+  mip->INODE.i_atime = mip->INODE.i_mtime= time(0L);
   mip->INODE.i_size=0;
+  mip->dirty = 1;
 }
+
+void closeFile()
+{
+  if(close_file(fd) < 0)
+    printf("close: failed\n");
+
+}
+
 int close_file(int fd)
 {
   //1. verify fd is within range.
