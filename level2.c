@@ -1,7 +1,8 @@
-#include "type.h"
 #include "level2.h"
+#include "level1.h"
 #include "utility.h"
 #include <stdlib.h>
+
 
 void fileopen()
 {
@@ -13,20 +14,22 @@ int open_file()
 {
   int mode,filemode;
   MINODE *mip;
-  OFT *Oftp;
-  long unsigned dev;
+  OFT *oftp;
+  int dev,i;
+  unsigned long ino;
+  char line[256];
 
   if(pathname[0] == 0 || parameter[0] == 0)
     { 
-      printf("open: enter pathname and mode = 0|1|2|3 for R|W|RW|APPEND\t");
-      scanf("%s %d",pathname,&mode);
+      printf("open: enter pathname and mode = 0|1|2|3 for R|W|RW|APPEND : ");
+      fgets(line,256,stdin);
+      line[strlen(line)-1] = 0;
+      sscanf(line, "%s %d",pathname,&mode);
     }
   else
     sscanf(parameter, "%d",&mode);
 
-  printf("pathname =%s mode =%d\n",pathname,mode);
-
-  if(pathname[0] = '/')
+   if(pathname[0] == '/')
     dev = root->dev;
   else
     dev = running->cwd->dev;
@@ -39,55 +42,73 @@ int open_file()
   mip = iget(dev,ino); 
   
   filemode = mip->INODE.i_mode;
-  if ( ( mip->INODE.i_mode & 0040000) == 0040000) /// DIR
+  if ( ( filemode & 0040000) == 0040000) /// DIR
     {
       printf("%s is a DIR file\n",pathname);
       iput(mip);
       return -1;
     }
   
-  if( mode >0 && mode < 4 && !(filemode &(1 << 7)))
+  if( mode >0 && mode < 4 &&!(filemode &(1 << 7)))
+    {
+      printf("%s can't open for WRITE\n",pathname);
+      iput(mip);
+      return -1;
+    } 
+
+  if((mode == 0 || mode ==2) &&! (filemode & ( 1 << 8)))
     {
       printf("%s can't open for READ\n",pathname);
       iput(mip);
       return -1;
     }
-
-  if((mode == 0 || mode ==2) &&! (filemode & ( 1 << 8)))
-    {
-      printf("%s can't open for WRITE\n",pathname);
-      iput(mip);
-      return -1;
-    }
  
+  i = 0;
+  while(running->fd[i])
+    {
+      if(running->fd[i]->inodeptr->ino == ino && mode)
+	{
+	  printf("file %s is already opened with incompatible mode\n",pathname);
+	  iput(mip);
+	  return -1;
+	}
+      i++; 
+    }
+
   oftp =(OFT *) malloc(sizeof(OFT));       // get a FREE OFT
   oftp->mode = mode;                       // open mode 
   oftp->refCount = 1;
   oftp->inodeptr = mip;                    // point at the file's minode[]
  
   switch(mode){
-         case 0 : oftp->offset = 0; 
-                  break;
-         case 1 : truncate(mip);        // W : truncate file to 0 size
-                  oftp->offset = 0;
-                  break;
-         case 2 : oftp->offset = 0;    // RW does NOT truncate file
-                  break;
-         case 3 : oftp->offset =  mip->INODE.i_size;  // APPEND mode
-                  break;
-         default: printf("invalid mode\n");
-                  return(-1);
+  case 0 : oftp->offset = 0; 
+    break;
+  case 1 : truncate(mip);        // W : truncate file to 0 size
+    oftp->offset = 0;
+    break;
+  case 2 : oftp->offset = 0;    // RW does NOT truncate file
+    break;
+  case 3 : oftp->offset =  mip->INODE.i_size;  // APPEND mode
+    break;
+  default: printf("invalid mode\n");
+    return(-1);
   }
-  while(running->fd[i]!=NULL)
+
+  i = 0;
+  while(running->fd[i])
   {
-	i++;
+    i++;
   }
+  printf("fd = %d dev = %d ino = %d\n", i, dev, ino);
   running->fd[i]=oftp;
-  mip->INODE.i_atime = mip->INODE.i_mtime = time(0L);
+  mip->INODE.i_atime = time(0L);
 
   if(mode)
+    {
     mip->dirty = 1;
- 
+    mip->INODE.i_mtime = time(0L);
+    }
+
   return i;
 
 }
@@ -99,7 +120,7 @@ void truncate(MINODE *mip)
   int *k,*j,*t;
   char buf[BLOCK_SIZE],buf2[BLOCK_SIZE];
 
-   for(i = 0; i <= 14; i++)
+  for(i = 0; i <= 14; i++)
     block[i] = mip->INODE.i_block[i];
 
   // directed block
@@ -151,6 +172,19 @@ void truncate(MINODE *mip)
 
 void closeFile()
 {
+
+  int fd;
+  MINODE *mip;
+
+  if(pathname[0] == 0)
+    {
+      printf("close : input fd number : ");
+      fgets(pathname, 256,stdin);
+      pathname[strlen(pathname) - 1] = 0;
+    }
+
+  sscanf(pathname, "%d",&fd);
+
   if(close_file(fd) < 0)
     printf("close: failed\n");
 
@@ -158,60 +192,129 @@ void closeFile()
 
 int close_file(int fd)
 {
+
+  OFT *oftp;
+  MINODE *mip;
   //1. verify fd is within range.
-
+  if(fd < 0 || fd  >= NFD)
+    {
+      printf("invalid fd\n");
+      return -1;
+    }
+ 
   //2. verify running->fd[fd] is pointing at a OFT entry
+  if(running->fd[fd] == 0)
+    {
+      printf("fd doesn't exist\n");
+      return -1;
+    }
+  
+  oftp = running->fd[fd];
+  running->fd[fd] = 0;
+  oftp->refCount--;
+  
+  if (oftp->refCount > 0)
+    return 0;
 
-  //3. The following code segments should be fairly obvious:
-  //   oftp = running->fd[fd];
-  //   running->fd[fd] = 0;
-  //   oftp->refCount--;
-  //  if (oftp->refCount > 0) return 0;
-
-     // last user of this OFT entry ==> dispose of the Minode[]
-  //   mip = oftp->inodeptr;
-  //   iput(mip);
-
-  //   fdalloc(oftp);   (optional, refCount==0 says it's FREE)
-     return 0; 
+  mip = oftp->inodeptr;
+  iput(mip);
+  oftp->refCount = 0;
+  printf("refCount = %d, it is FREE\n",oftp->refCount);
+  free(oftp);  
+  oftp = 0;
+  return 0; 
 }
 
-long lseek(int fd, long position)
+void do_seek()
 {
-  //From fd, find the OFT entry. 
-
-  //change OFT entry's offset to position but make sure NOT to over run
-  //either end of the file.
-
-  //return originalPosition
+  int fd, position;
+  if(pathname[0] == 0 || parameter[0] == 0)
+    {
+      printf("lseek : input fd position :");
+      fgets(pathname, 256,stdin);
+      pathname[strlen(pathname)-1] = 0;
+      sscanf(pathname,"%d %d",&fd, &position);
+    }
+  else
+    {
+      sscanf(pathname, "%d", &fd);
+      sscanf(parameter,"%d",&position);
+    }
+ 
+  if(llseek(fd,position) < 0)
+    printf("lseek failed\n");
 }
-int pfd()
+
+
+long llseek(int fid, long position)
 {
-  //This function displays the currently opened files as follows:
-  //     filename  fd  mode  offset
-  //     --------  --  ----  ------ 
-  //     /a/b/c     1  READ   1234       
-  //to help the user know what files has been opened.
-  printf("\t filename\tfd\tmode\toffset\n");
-  printf("\t --------\t--\t----\t------\n");
-  for(i=0;i<11;i++)
-  {
- 	printf("\t %s\t%d\t",running->fd[i]->inodeptr->name,i);
-	switch(running->fd[i]->mode){
-		case 0:
-		       printf("R\t");
-		       break;
-		case 1:
-		       printf("W\t");
-		       break;
-		case 2:
-		       printf("RW\t");
-		       break;
-		case 3:
-                       printf("APPEND\t");
-		       break;
+  
+  long OriginPosition;
+
+  if(fid < 0 || fid  >= NFD)
+    {
+      printf("invalid fd\n");
+      return -1;
+    }
+ 
+  if(running->fd[fid] == 0)
+    {
+      printf("fd doesn't exist\n");
+      return -1;
+    }
+
+  OriginPosition = running->fd[fid]->offset;
+
+  // make sure not over run either end of the file
+  if(running->fd[fid]->inodeptr->INODE.i_size < position)
+    running->fd[fid]->offset = running->fd[fid]->inodeptr->INODE.i_size;
+  else if (position < 0)
+    running->fd[fid]->offset = 0;
+  else
+    running->fd[fid]->offset = position;
+
+  return OriginPosition;
+  
+}
+
+
+void pfd()
+{
+
+  int i = 0;
+  if(running->fd[0])
+    {
+      printf("============== pid = %d ==============\n",running->pid);
+      printf("fd  mode     offset   count  [dev,ino]\n");
+      printf("--  ----     ------   -----  ---------\n");
+
+      while(running->fd[i])
+	{	
+     	  printf("%d   ",i);
+	  switch(running->fd[i]->mode){
+	  case 0:
+	    printf("READ    ");
+	    break;
+	  case 1:
+	    printf("WRITE   ");
+	    break;
+	  case 2:
+	    printf("RW      ");
+	    break;
+	  case 3:
+	    printf("APPEND  ");
+	    break;
+	  }
+	  printf("     %d     ",running->fd[i]->offset);
+	  printf("     %d     ",running->fd[i]->refCount);
+	  printf("[%d,%d]\n",running->fd[i]->inodeptr->dev, running->fd[i]->inodeptr->ino);   
+	  i++;
 	}
-	printf("%d\n",running->fd[i]->offset);
-  } 
+      printf("=======================================\n");
+    }
+  else
+    {
+      printf("no opened files\n");
+    }
 }
 

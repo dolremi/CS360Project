@@ -13,12 +13,12 @@ void init(){
   proc[1].gid = 0;
   proc[0].cwd = 0;
   proc[1].cwd = 0;
-
+ 
   for(i = 0; i < NMINODES; i++)
     minode[i].refCount = 0;
 
   root = 0;
-
+ 
   mount_root();
 
   running = &proc[0];
@@ -36,8 +36,8 @@ void mount_root()
  
   fgets(devicename,128,stdin);
   devicename[strlen(devicename)-1] = 0;
- 
-  if(devicename[0] == 0)
+  
+   if(devicename[0] == 0)
     {
       strcpy(devicename, "/dev/fd0/");
       printf("Now the device is %s\n",devicename);
@@ -45,22 +45,23 @@ void mount_root()
     }
   else{
     dev = open(devicename,O_RDWR);
- 
+   
     if(dev < 0)
       {
 	printf("open %s failed.\n",devicename);
 	exit(1);
       }
- 
     // verify it is an EXT2 FS
     get_block(dev,SUPERBLOCK,buf);
+ 
+   
     sp = (SUPER *)buf;
     magic = sp->s_magic;
     nblocks = sp->s_blocks_count;
     bfree = sp->s_free_blocks_count;
     ninodes = sp->s_inodes_count;
     ifree = sp->s_free_inodes_count;
-  
+ 
     if(magic == SUPER_MAGIC)
       {
         get_block(dev,GDBLOCK,buf);
@@ -280,7 +281,7 @@ int do_ls(char *path)
 	    strcpy(child,path);
 	  }
 	  printFile(mip,child);
-	  return -1;
+	  return 0;
 	}
 
       printChild(device, mip);

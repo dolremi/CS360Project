@@ -5,7 +5,7 @@
 void get_block(int fd,int block, char *buf)
 {
   lseek(fd,(long)(BLOCK_SIZE*block),0);
-  read(fd,buf,BLOCK_SIZE);
+  read(fd,buf,BLOCK_SIZE); 
 }
 
 

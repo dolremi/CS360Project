@@ -1,8 +1,13 @@
 #include "type.h"
 #include "user.h"
 #include "level1.h"
+#include "level2.h"
 
 functionTable myTable[] ={
+  {"pfd",pfd},
+  {"lseek",do_seek},
+  {"close",closeFile},
+  {"open",fileopen},
   {"chgrp",chgrp},
   {"chown",chown},
   {"chmod",chgmod},
