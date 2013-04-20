@@ -195,15 +195,14 @@ int close_file(int fd)
 
   OFT *oftp;
   MINODE *mip;
-  //1. verify fd is within range.
+ 
   if(fd < 0 || fd  >= NFD)
     {
       printf("invalid fd\n");
       return -1;
     }
  
-  //2. verify running->fd[fd] is pointing at a OFT entry
-  if(running->fd[fd] == 0)
+   if(running->fd[fd] == 0)
     {
       printf("fd doesn't exist\n");
       return -1;
@@ -318,3 +317,72 @@ void pfd()
     }
 }
 
+void do_read()
+{
+
+  if(read_file() < 0)
+    printf("can't read file\n");
+
+}
+
+int read_file()
+{
+  int fd, nbytes;
+  char buf[BLOCK_SIZE];
+
+  if(pathname[0] == 0 || parameter[0] == 0)
+    {
+      printf("read : input fd  nbytes to read: ");
+      fgets(pathname,256, stdin);
+      pathname[strlen(pathname) -1 ] = 0;
+      sscanf(pathname, "%d %d",&fd, &nbytes);
+    }
+  else
+    {
+      sscanf(pathname,"%d",&fd);
+      sscanf(parameter,"%d",&nbytes);
+    }
+
+  if(fd < 0 || fd  >= NFD)
+    {
+      printf("invalid fd\n");
+      return -1;
+    }
+ 
+  if(running->fd[fd] == 0)
+    {
+      printf("fd doesn't exist\n");
+      return -1;
+    }
+
+  if( running->fd[fd]->mode ==1 || running->fd[fd]->mode == 3)
+    {
+      printf("bad mode\n");
+      return -1;
+    }
+  return myread(fd, buf, nbytes);
+}
+
+int myread(int fd, char *buf, int nbytes)
+{
+  int size,lbk, startByte,lbk;
+  OFT *oftp = running->fd[fd];
+  int *i, *j, *k;
+  MINODE *mip = oftp->inodeptr;
+
+  size = oftp->inodeptr->INODE.i_size - oftp->offset;
+
+  while( nbytes > 0 && size > 0)
+    {
+      lbk = oftp->offset / BLOCK_SIZE;
+      startByte = oftp->offset % BLOCK_SIZE;
+
+      if(lbk < 12){
+	blk = mip->INODE.i_block[lbk];
+      }
+      else if(lbk >=12 && lbk < 256 + 12){
+      }
+      else{
+      }
+    }
+}

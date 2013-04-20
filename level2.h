@@ -16,3 +16,10 @@ void do_seek();
 long llseek(int fd, long position);
 
 void pfd();
+
+void do_read();
+
+int read_file();
+
+int myread(int fd, char *buf, int nbytes);
+
