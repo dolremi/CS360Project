@@ -305,9 +305,9 @@ void pfd()
 	    printf("APPEND  ");
 	    break;
 	  }
-	  printf("     %d     ",running->fd[i]->offset);
-	  printf("     %d     ",running->fd[i]->refCount);
-	  printf("[%d,%d]\n",running->fd[i]->inodeptr->dev, running->fd[i]->inodeptr->ino);   
+	  printf("   %d   ",running->fd[i]->offset);
+	  printf("     %d  ",running->fd[i]->refCount);
+	  printf("   [%d,%d]\n",running->fd[i]->inodeptr->dev, running->fd[i]->inodeptr->ino);   
 	  i++;
 	}
       printf("=======================================\n");
