@@ -3,7 +3,7 @@
 
 void fileopen();
 
-int open_file();
+int open_file(int mode);
 
 void truncate(MINODE *mip);
 
@@ -23,3 +23,6 @@ int read_file();
 
 int myread(int fd, char *buf, int nbytes);
 
+void do_cat();
+
+int catFile();

@@ -6,19 +6,8 @@
 
 void fileopen()
 {
-  if(open_file() < 0)
-    printf("can't open the file\n");
-}
-
-int open_file()
-{
-  int mode,filemode;
-  MINODE *mip;
-  OFT *oftp;
-  int dev,i;
-  unsigned long ino;
+  int mode;
   char line[256];
-
   if(pathname[0] == 0 || parameter[0] == 0)
     { 
       printf("open: enter pathname and mode = 0|1|2|3 for R|W|RW|APPEND : ");
@@ -29,7 +18,19 @@ int open_file()
   else
     sscanf(parameter, "%d",&mode);
 
-   if(pathname[0] == '/')
+  if(open_file(mode) < 0)
+    printf("can't open the file\n");
+}
+
+int open_file(int mode)
+{
+  int filemode;
+  MINODE *mip;
+  OFT *oftp;
+  int dev,i;
+  unsigned long ino;
+
+  if(pathname[0] == '/')
     dev = root->dev;
   else
     dev = running->cwd->dev;
@@ -364,25 +365,135 @@ int read_file()
 }
 
 int myread(int fd, char *buf, int nbytes)
-{
-  int size,lbk, startByte,lbk;
-  OFT *oftp = running->fd[fd];
-  int *i, *j, *k;
-  MINODE *mip = oftp->inodeptr;
+{ 
+ int block[15];
+ int size,lbk, startByte,blk,i,m,secLbk, secSb,remain,readIn,count;
+ int  *j, *k, *t;
+ char buffer[BLOCK_SIZE], buffer2[BLOCK_SIZE], readbuf[BLOCK_SIZE];
+ char *cp, *cq;
+ OFT *oftp = running->fd[fd];
+ MINODE *mip = oftp->inodeptr;
+ 
+ count = 0;
+ cq = buf;
 
-  size = oftp->inodeptr->INODE.i_size - oftp->offset;
+ for(i = 0 ; i <15; i++)
+   block[i] = mip ->INODE.i_block[i];
 
-  while( nbytes > 0 && size > 0)
-    {
-      lbk = oftp->offset / BLOCK_SIZE;
-      startByte = oftp->offset % BLOCK_SIZE;
+ size = oftp->inodeptr->INODE.i_size - oftp->offset;
 
-      if(lbk < 12){
-	blk = mip->INODE.i_block[lbk];
-      }
-      else if(lbk >=12 && lbk < 256 + 12){
-      }
-      else{
-      }
-    }
+ while( nbytes > 0 && size > 0)
+   {
+     lbk = oftp->offset / BLOCK_SIZE;
+     startByte = oftp->offset % BLOCK_SIZE;
+
+     if(lbk < 12){
+       blk = mip->INODE.i_block[lbk];
+     }
+     else if(lbk >=12 && lbk < 256 + 12){
+       get_block(mip->dev,block[12],buffer); 
+       k = (int *) buffer;
+       i = 0;
+       while(i < lbk - 12)
+	 {
+	   k++;
+	   i++;
+	 }
+       blk = *k;
+     }
+     else{
+       get_block(mip->dev, block[13],buffer);
+       secLbk = (lbk - 267) / 256;
+       secSb = (lbk - 267) % 256;
+       t = (int *)buffer;
+       i = 0;
+       while(i < secLbk)
+	 {
+	   t++;
+	   i++;
+	 }
+
+       get_block(mip->dev, *t, buffer2);
+       j = (int *)buffer2;
+       i = 0;
+       while(i < secSb)
+	 {
+	   j++;
+	   i++;
+	 }
+       blk = *j;
+     }
+
+     get_block(mip->dev,blk, readbuf);
+     cp = readbuf + startByte;
+     remain = BLOCK_SIZE - startByte;
+     readIn = min(remain, size, nbytes);
+     strncpy(cq, cp, readIn);
+     cq += readIn;
+     oftp->offset += readIn;
+     count += readIn;
+     size -= readIn;
+     nbytes -= readIn;
+
+   }
+ printf("myread : read %d char from file %d\n",count, fd);
+
+ return count;
+
 }
+
+
+int min(int a, int b, int c)
+{
+  int minValue;
+  if(a < b)
+    {
+      minValue = a;
+      if(c < a)
+	minValue = c;
+    }
+  else
+    {
+      minValue = b;
+      if(c < b)
+	minValue = c;
+    }
+
+  return minValue;
+
+}
+
+void do_cat()
+{
+  if(catFile() < 0)
+    printf("can't cat file\n");
+}
+
+int catFile()
+{
+  int fd, n;
+  char mybuf[BLOCK_SIZE];
+
+  if(pathname[0] == 0)
+    {
+      printf("cat : Input filename : ");
+      fgets(pathname, 256, stdin);
+      pathname[strlen(pathname) - 1 ] = 0;
+    }
+
+  if((fd = open_file(0)) < 0)
+    {
+      printf("file open error\n");
+      return -1;
+    }
+
+  while( n = myread(fd,mybuf, BLOCK_SIZE))
+    {
+      mybuf[n] = 0;
+      printf("%s",mybuf);
+    }
+
+  close_file(fd);
+
+  return 0;
+} 
