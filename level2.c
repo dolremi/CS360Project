@@ -497,3 +497,19 @@ int catFile()
 
   return 0;
 } 
+
+void do_write()
+{
+  if(write_file() < 0)
+    printf("write file failed\n");
+
+}
+
+int write_file()
+{
+
+
+
+
+
+}

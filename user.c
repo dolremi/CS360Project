@@ -4,6 +4,8 @@
 #include "level2.h"
 
 functionTable myTable[] ={
+  {"cat",do_cat},
+  {"read",do_read},
   {"pfd",pfd},
   {"lseek",do_seek},
   {"close",closeFile},

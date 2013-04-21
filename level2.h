@@ -26,3 +26,7 @@ int myread(int fd, char *buf, int nbytes);
 void do_cat();
 
 int catFile();
+
+void do_write();
+
+int write_file();
