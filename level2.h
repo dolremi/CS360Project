@@ -30,3 +30,5 @@ int catFile();
 void do_write();
 
 int write_file();
+
+int mywrite(int fd, char *buf, int nbytes);

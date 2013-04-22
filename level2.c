@@ -507,9 +507,126 @@ void do_write()
 
 int write_file()
 {
+  int fd,nbytes;
+  char line[BLOCK_SIZE];
+  char buf[256];
+
+  if(pathname[0] == 0 || parameter[0] == 0)
+    {
+      printf("write : input  fd  text : ");
+      fgets(line, BLOCK_SIZE, stdin);
+      pathname[strlen(line) - 1] = 0;
+      sscanf(line, "%d %s", &fd, buf);
+    }
+  else
+    {
+      sscanf(pathname, "%d", &fd);
+      strcpy(buf, pathname);
+    }
+
+  if(fd < 0 || fd  >= NFD)
+    {
+      printf("invalid fd\n");
+      return -1;
+    }
+ 
+  if(running->fd[fd] == 0)
+    {
+      printf("fd doesn't exist\n");
+      return -1;
+    }
+
+  if(running->fd[fd]->mode == 0)
+    {
+      printf("bad mode\n");
+      return -1;
+    }
+
+  nbytes = strlen(buf);
+  return mywrite(fd, buf, nbytes); 
 
 
+}
+
+int mywrite(int fd, char *buf, int nbytes)
+{
+  int block[15];
+  int size, lbk, startByte, blk, i, m, secLbk, secSb, remain, writeIn, count;
+  int *j, *k, *t;
+  char buffer[BLOCK_SIZE], buffer2[BLOCK_SIZE],wbuf[BLOCK_SIZE];
+  char *cq, *cp;
+  OFT *oftp = running->fd[fd];
+  MINODE *mip = oftp->inodeptr;
+
+  count = 0;
+  cq = buf;
+
+ for(i = 0 ; i <15; i++)
+   block[i] = mip ->INODE.i_block[i];
+
+  while(nbytes)
+    {
+      lbk = oftp->offset / BLOCK_SIZE;
+      startByte = oftp->offset % BLOCK_SIZE;
+
+      if(lbk < 12){
+	if(mip->INODE.i_block[lbk] == 0)
+	  mip->INODE.i_block[lbk] = balloc(mip->dev);
+	blk = mip->INODE.i_block[lbk];
+      }
+      else if (lbk >= 12 && lbk < 256 + 12){
+	get_block(mip->dev, block[12], buffer);
+	k = (int *)buffer;
+	i = 0;
+	while(i < lbk - 12)
+	  {
+	    k++;
+	    i++;
+	  }
+
+	if(*k == 0)
+	  *k = balloc(mip->dev);
+
+	blk = *k;
+      }
+      else{
+	get_block(mip->dev, block[13],buffer);
+       secLbk = (lbk - 267) / 256;
+       secSb = (lbk - 267) % 256;
+       t = (int *)buffer;
+       i = 0;
+       while(i < secLbk)
+	 {
+	   t++;
+	   i++;
+	 }
+
+       get_block(mip->dev, *t, buffer2);
+       j = (int *)buffer2;
+       i = 0;
+       while(i < secSb)
+	 {
+	   j++;
+	   i++;
+	 }
+
+       if(*j == 0)
+	 *j = balloc(mip->dev);
+
+       blk = *j;
+      }
+
+      get_block(mip->dev, blk, wbuf);
+      cp = wbuf + startByte;
+      remain = BLOCK_SIZE - startByte;
 
 
+      // check the min 
 
+      put_block(mip->dev, blk, wbuf);
+    }
+
+  mip->dirty = 1;
+  printf("wrote %d char into file fd = %d\n",nbytes,fd);
+  return nbytes;
 }
