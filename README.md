@@ -16,10 +16,15 @@ symlink
 
 level1 function finished
 
-The function needs to be fixed
-open
+open 
 close
 lseek
+read
+cat
+
+
+The function needs to be fixed
+write
 
 
 
