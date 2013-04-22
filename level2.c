@@ -622,6 +622,15 @@ int mywrite(int fd, char *buf, int nbytes)
 
 
       // check the min 
+      writeIn = remain > nbytes? nbytes : remain;
+      strncpy(cp, cq, writeIn);
+      cq+= writeIn;
+      cp+= writeIn;
+      nbytes -= writeIn;
+      remain -= writeIn;
+      oftp->offset += writeIn;
+      if(oftp->offset > mip->INODE.i_size)
+	mip->INODE.i_size += oftp->offset;
 
       put_block(mip->dev, blk, wbuf);
     }
@@ -630,3 +639,4 @@ int mywrite(int fd, char *buf, int nbytes)
   printf("wrote %d char into file fd = %d\n",nbytes,fd);
   return nbytes;
 }
+
