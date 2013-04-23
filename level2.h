@@ -32,3 +32,11 @@ void do_write();
 int write_file();
 
 int mywrite(int fd, char *buf, int nbytes);
+
+void do_cp();
+
+int copy();
+
+void do_mv();
+
+int move();

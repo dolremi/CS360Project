@@ -492,7 +492,8 @@ int catFile()
       mybuf[n] = 0;
       printf("%s",mybuf);
     }
-
+  printf("\n");
+  printf("================================\n");
   close_file(fd);
 
   return 0;
@@ -502,7 +503,7 @@ void do_write()
 {
   if(write_file() < 0)
     printf("write file failed\n");
-
+  
 }
 
 int write_file()
@@ -521,7 +522,7 @@ int write_file()
   else
     {
       sscanf(pathname, "%d", &fd);
-      strcpy(buf, pathname);
+      strcpy(buf, parameter);
     }
 
   if(fd < 0 || fd  >= NFD)
@@ -591,52 +592,190 @@ int mywrite(int fd, char *buf, int nbytes)
       }
       else{
 	get_block(mip->dev, block[13],buffer);
-       secLbk = (lbk - 267) / 256;
-       secSb = (lbk - 267) % 256;
-       t = (int *)buffer;
-       i = 0;
-       while(i < secLbk)
-	 {
-	   t++;
-	   i++;
-	 }
+	
+	// calculate the secondary logical block and startBlock
+	secLbk = (lbk - 267) / 256;
+	secSb = (lbk - 267) % 256;
+  
+	t = (int *)buffer;
+	i = 0;
+	while(i < secLbk)
+	  {
+	    t++;
+	    i++;
+	  }
 
-       get_block(mip->dev, *t, buffer2);
-       j = (int *)buffer2;
-       i = 0;
-       while(i < secSb)
-	 {
-	   j++;
-	   i++;
-	 }
+	get_block(mip->dev, *t, buffer2);
+	j = (int *)buffer2;
+	i = 0;
+	while(i < secSb)
+	  {
+	    j++;
+	    i++;
+	  }
 
-       if(*j == 0)
-	 *j = balloc(mip->dev);
+	if(*j == 0)
+	  *j = balloc(mip->dev);
 
-       blk = *j;
+	blk = *j;
       }
 
       get_block(mip->dev, blk, wbuf);
       cp = wbuf + startByte;
       remain = BLOCK_SIZE - startByte;
 
-
-      // check the min 
-      writeIn = remain > nbytes? nbytes : remain;
+      // check the min of remain and nbytes
+      writeIn = (remain > nbytes? nbytes : remain);
       strncpy(cp, cq, writeIn);
       cq+= writeIn;
       cp+= writeIn;
       nbytes -= writeIn;
       remain -= writeIn;
+      count += writeIn;
       oftp->offset += writeIn;
       if(oftp->offset > mip->INODE.i_size)
-	mip->INODE.i_size += oftp->offset;
+	mip->INODE.i_size = oftp->offset;
 
       put_block(mip->dev, blk, wbuf);
     }
 
   mip->dirty = 1;
-  printf("wrote %d char into file fd = %d\n",nbytes,fd);
+  printf("wrote %d char into file fd = %d\n",count,fd);
   return nbytes;
 }
 
+void do_cp()
+{
+  if(copy() < 0)
+    printf("can't cp\n");
+}
+
+
+int copy()
+{
+  int dev, ino,fd1, fd2, n;
+  MINODE *mip;
+  char buf[BLOCK_SIZE];
+  char line[BLOCK_SIZE];
+  if(pathname [0] == 0 || parameter[0] == 0)
+    {
+      printf("cp: Input f1 f2 : ");
+      fgets(line, 256, stdin);
+      line[strlen(line) -1 ] = 0;
+      sscanf(line, "%s %s", pathname, parameter);
+    }
+
+  if(pathname[0] == '/')
+    dev = root->dev;
+  else
+    dev = running->cwd->dev;
+
+  ino = getino(&dev, pathname);
+  
+  // check the src file exists
+  if(!ino)
+    return -1;
+
+  if((fd1 = open_file(0)) < 0)
+    return -1;
+
+  if(parameter[0] == '/')
+    dev = root->dev;
+  else
+    dev = running->cwd->dev;
+
+  ino = getino(&dev, parameter);
+
+  strcpy(pathname, parameter);
+     
+  if(!ino)
+    {
+      if(creat_file()< 0)
+	return -1;
+    }
+
+  if((fd2 = open_file(1)) < 0)
+    return -1;
+
+  while(n = myread(fd1, buf, BLOCK_SIZE)){
+    mywrite(fd2, buf, n);
+  }
+
+  close_file(fd1);
+  close_file(fd2);
+  return 0;
+
+}
+
+void do_mv()
+{
+  if(move() < 0)
+    printf("can't mv\n");
+
+}
+
+
+int move()
+{
+  int newDev, oldDev;
+  unsigned long ino;
+  char buf[BLOCK_SIZE];
+  char line[BLOCK_SIZE];
+  char oldPath[256];
+  char *parent;
+
+  if(pathname [0] == 0 || parameter[0] == 0)
+    {
+      printf("mv: Input f1 f2 : ");
+      fgets(line, 256, stdin);
+      line[strlen(line) -1 ] = 0;
+      sscanf(line, "%s %s", pathname, parameter);
+    }
+
+
+  if(pathname[0] == '/')
+    oldDev = root->dev;
+  else
+    oldDev = running->cwd->dev;
+
+  ino = getino(&oldDev, pathname);
+  strcpy(oldPath, pathname);
+  // check the src file exists
+  if(!ino)
+    return -1;
+
+  if(findparent(parameter))
+    {
+      parent = dirname(parameter);
+      ino = (&newDev, parent);
+      if(!ino)
+	{
+	  free(parent);
+	  return -1;
+	}
+      free(parent);
+    }
+  else
+    newDev = running->cwd->dev;
+ 
+  if(newDev == oldDev)
+    {
+      if(link() < 0)
+	return -1;
+
+      if(unlink() < 0)
+	return -1;
+    }
+  else
+    {
+      if( copy() < 0)
+	return -1;
+
+      strcpy(pathname, oldPath);
+
+      if(unlink() < 0)
+	return -1;
+    }
+
+  return 0;
+}
