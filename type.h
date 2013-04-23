@@ -70,7 +70,7 @@ typedef struct Proc{
   int   ppid;
   struct Proc *parent;
   int   status;
-  struct Mount *mTalbe[NMOUNT];
+ 
   struct Minode *cwd;
   OFT   *fd[NFD];
 } PROC;
