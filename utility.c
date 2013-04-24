@@ -68,7 +68,8 @@ char *basename(char *pathname)
 
 
 unsigned long  getino(int *device, char *pathname){
-  int i,n;
+  int i,n,f;
+  int mounted;
   unsigned long inumber;
   char buf[BLOCK_SIZE],path[256];
   char firstC;
@@ -93,7 +94,32 @@ unsigned long  getino(int *device, char *pathname){
       
   for(i = 0; i < n ; i++)
     {
-      mip = iget(*device, inumber);  
+     
+      mip = iget(*device, inumber);
+      printf("at first device is %d\n", *device);
+      //level3 go up
+      if(inumber==2 && *device!=root->dev && (strcmp(name[i],"..")==0))
+	{
+	  for(f=0;f<NMOUNT;f++)
+	    {
+	      if(mountTable[f] && mountTable[f]->dev==*device)
+		{
+		  *device=mountTable[f]->mounted_inode->dev;
+		  inumber=mountTable[f]->mounted_inode->ino;
+		  mip=iget(*device,inumber);
+		}
+	    }
+	}
+      // level3 added
+      else if(mip->mounted == 1)
+      	{	
+	  *device = mip->mountptr->dev;
+	  printf("inumber = %d\n",inumber);
+	  iput(mip);
+	  mip = iget(*device,ROOT_INODE);
+      	}
+      // added level3
+	  
       inumber = search(mip, name[i]);
 
       // The file is not found
@@ -112,6 +138,17 @@ unsigned long  getino(int *device, char *pathname){
 	}
       iput(mip);
     }
+  // level 3
+  mip = iget(*device, inumber);
+  
+  if(mip->mounted == 1)
+    {
+      *device = mip->mountptr->dev;
+      printf("then device is %d\n", *device);
+      inumber = ROOT_INODE;
+    }
+  iput(mip);
+  // level 3
 
   return inumber;
 }

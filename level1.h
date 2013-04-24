@@ -1,6 +1,8 @@
 #include "type.h"
 
 // Initialization of the program 
+void menu();
+
 void init();
 
 void mount_root();

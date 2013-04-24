@@ -2,7 +2,32 @@
 #include "level1.h"
 #include "utility.h"
 #include <stdlib.h>
+#include "level3.h"
 
+void menu()
+{
+  printf("\t******************** Menu *******************\n");
+  printf("\tmkdir     creat     mount     umount    rmdir\n");
+  printf("\tcd        ls        pwd       stat      rm\n");   
+  printf("\tlink      unlink    symlink   chmod     chown  touch\n");
+  printf("\topen      pfd       lseek     rewind    close\n");
+  printf("\tread      write     cat       cp        mv\n");
+  printf("\tcs        fork      ps        kill      quit\n");
+  printf("\t=============   Usage Examples ==============\n");
+  printf("\tmkdir  filename\n");
+  printf("\tmount  filesys   /mnt\n");
+  printf("\tchmod  filename  0644\n");
+  printf("\tchown  filename  uid\n");
+  printf("\topen   filename  mode (0|1|2|3 for R|W|RW|AP)\n");
+  printf("\twrite  fd  text_string\n");
+  printf("\tread   fd  nbytes\n");
+  printf("\tpfd    (display opened file descriptors)\n");
+  printf("\tcs     (switch process)\n");
+  printf("\tfork   (fork child process)\n");
+  printf("\tps     (show process queue as Pi[uid]==>}\n");
+  printf("\tkill   pid   (kill a process)\n");
+  printf("\t*********************************************\n");
+}
 
 void init(){
   int i = 0;
@@ -72,9 +97,18 @@ void mount_root()
 	printf("mount : %s mounted on / \n",devicename); 
 	printf("nblocks=%d bfree=%d  ninodes=%d ifree=%d\n",nblocks, bfree,ninodes,ifree);
 	root = iget(dev, ROOT_INODE);
+	root->mountptr = (MOUNT *)malloc(sizeof(MOUNT));
+	mountTable[0] = root->mountptr;
+	root->mountptr->ninodes = ninodes;
+	root->mountptr->nblocks = nblocks;
+	root->mountptr->dev = dev;
+	root->mountptr->busy = 1;
+	root->mountptr->mounted_inode = root;
+	strcpy(root->mountptr->mount_name,devicename);
+	strcpy(root->mountptr->name, "/");
+	root->mounted = 1;
 	printf("mounted root\n");
 	printf("creating P0, P1\n");
-
 	proc[0].cwd = root;
 	proc[1].cwd = root;
 	root->refCount = 3;
@@ -96,6 +130,14 @@ void quit()
       while(minode[i].refCount)
 	iput(&minode[i]);
     }
+
+  i = 0;
+  while(mountTable[i] && i < NMOUNT)
+    {
+      strcpy(pathname, mountTable[i]->mount_name);
+      umount();
+      i++; 
+    }
   printf("program finished.\n");
   exit(1);
 }
@@ -115,17 +157,33 @@ void do_pwd(MINODE *wd)
   struct DIR *dirp;
   char myname[256];
   unsigned long myino,parentino;
+  int f;
+  
   
   if(wd == root)
     {
       return;
     }
-
+  
   findino(wd,&myino,&parentino);
+  if(myino==2 && wd->dev!=root->dev)
+    {
+      for(f=0;f<NMOUNT;f++)
+	    {
+	      if(mountTable[f] && mountTable[f]->dev==wd->dev)
+		{
+		  wd->dev=mountTable[f]->mounted_inode->dev;
+		  parentino=mountTable[f]->mounted_inode->ino;
+		
+		}
+	    }
+      
+    }
   wd = iget(wd->dev, parentino);
   do_pwd(wd);
   findmyname(wd,myino,myname);
-  printf("/%s",myname);
+  if(strcmp(myname,"..")!=0)
+    printf("/%s",myname);
   iput(wd);
 }
 
@@ -230,7 +288,7 @@ int do_stat(char *path, struct stat *stPtr)
   printf("gid=%d   ",stPtr->st_gid);
   printf("nlink=%d\n",stPtr->st_nlink);
   printf("size=%d ",stPtr->st_size); 
-  printf("time=%s\n",ctime(&(stPtr->st_mtime)));
+  printf("time=%s",ctime(&(stPtr->st_mtime)));
   printf("**************************\n");
  
   iput(mip);
@@ -294,7 +352,7 @@ int do_ls(char *path)
 
 void printFile(MINODE *mip, char *namebuf)
 {
- 
+  char *Time;
   unsigned short mode;
   
   mode = mip->INODE.i_mode;
@@ -355,8 +413,11 @@ void printFile(MINODE *mip, char *namebuf)
 
 
  printf(" %d %d %d %d",mip->INODE.i_links_count, mip->INODE.i_uid,mip->INODE.i_gid, mip->INODE.i_size);
+
+ Time = ctime(&(mip->INODE.i_mtime));
+ Time[strlen(Time) -1 ] = 0;
 	      	   
- printf(" %s %s",ctime(&(mip->INODE.i_mtime)),namebuf);
+ printf(" %s %s",Time,namebuf);
 	      
  // if symblink needs to the file link to 
  if((mode & 0120000) == 0120000)
@@ -1493,7 +1554,15 @@ int do_chmod()
 
   mip = iget(dev,inumber);
 
-  mip->INODE.i_mode = mode;
+  if(( mip->INODE.i_mode & 0100000) == 0100000) 
+       mip->INODE.i_mode = 0100000 + mode;
+  else if (( mip->INODE.i_mode & 0040000) == 0040000)
+	mip->INODE.i_mode = 0040000 + mode;
+  else
+    mip->INODE.i_mode = 0120000 + mode;
+
+  printf("i_mode = %x \n",mip->INODE.i_mode);
+
   mip->dirty = 1;
 
   iput(mip);

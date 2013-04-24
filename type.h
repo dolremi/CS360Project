@@ -104,6 +104,7 @@ MINODE *root;
 PROC *running;
 char pathname[256];
 char parameter[256];
+MOUNT *mountTable[NMOUNT];
 
 // components of pathname after calling token_path function
 char *name[256];

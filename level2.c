@@ -562,8 +562,11 @@ int mywrite(int fd, char *buf, int nbytes)
   count = 0;
   cq = buf;
 
- for(i = 0 ; i <15; i++)
-   block[i] = mip ->INODE.i_block[i];
+ for(i = 0 ; i <14; i++)
+   {
+     if(mip->INODE.i_block[i])
+       block[i] = mip ->INODE.i_block[i];
+   }
 
   while(nbytes)
     {
@@ -576,6 +579,13 @@ int mywrite(int fd, char *buf, int nbytes)
 	blk = mip->INODE.i_block[lbk];
       }
       else if (lbk >= 12 && lbk < 256 + 12){
+	
+	if(mip->INODE.i_block[12] == 0)
+	  {	 
+	    mip->INODE.i_block[12] = balloc(mip->dev);
+	    block[12] = mip->INODE.i_block[12];
+	  }
+	
 	get_block(mip->dev, block[12], buffer);
 	k = (int *)buffer;
 	i = 0;
@@ -591,6 +601,13 @@ int mywrite(int fd, char *buf, int nbytes)
 	blk = *k;
       }
       else{
+
+	if(mip->INODE.i_block[13] == 0)
+	  {
+	    mip->INODE.i_block[13] = balloc(mip->dev);
+	    block[13] = mip->INODE.i_block[13];
+	  }
+		 
 	get_block(mip->dev, block[13],buffer);
 	
 	// calculate the secondary logical block and startBlock
@@ -604,6 +621,9 @@ int mywrite(int fd, char *buf, int nbytes)
 	    t++;
 	    i++;
 	  }
+
+	if(*t == 0)
+	  *t = balloc(mip->dev);
 
 	get_block(mip->dev, *t, buffer2);
 	j = (int *)buffer2;
@@ -747,7 +767,7 @@ int move()
   if(findparent(parameter))
     {
       parent = dirname(parameter);
-      ino = (&newDev, parent);
+      ino = getino(&newDev, parent);
       if(!ino)
 	{
 	  free(parent);

@@ -2,8 +2,12 @@
 #include "user.h"
 #include "level1.h"
 #include "level2.h"
+#include "level3.h"
 
 functionTable myTable[] ={
+  {"menu",menu},
+  {"umount",do_umount},
+  {"mount",do_mount},
   {"cp",do_cp},
   {"write",do_write},
   {"cat",do_cat},
