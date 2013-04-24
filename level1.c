@@ -174,7 +174,10 @@ void do_pwd(MINODE *wd)
 		{
 		  wd->dev=mountTable[f]->mounted_inode->dev;
 		  parentino=mountTable[f]->mounted_inode->ino;
-		
+		  wd = iget(wd->dev, parentino);
+		  do_pwd(wd);
+		  iput(wd);
+		  return;	
 		}
 	    }
       
