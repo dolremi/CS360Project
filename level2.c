@@ -562,11 +562,11 @@ int mywrite(int fd, char *buf, int nbytes)
   count = 0;
   cq = buf;
 
- for(i = 0 ; i <14; i++)
-   {
-     if(mip->INODE.i_block[i])
-       block[i] = mip ->INODE.i_block[i];
-   }
+  for(i = 0 ; i <14; i++)
+    {
+      if(mip->INODE.i_block[i])
+	block[i] = mip ->INODE.i_block[i];
+    }
 
   while(nbytes)
     {
@@ -616,6 +616,7 @@ int mywrite(int fd, char *buf, int nbytes)
   
 	t = (int *)buffer;
 	i = 0;
+
 	while(i < secLbk)
 	  {
 	    t++;
@@ -651,7 +652,7 @@ int mywrite(int fd, char *buf, int nbytes)
       cp+= writeIn;
       nbytes -= writeIn;
       remain -= writeIn;
-      count += writeIn;
+      count  += writeIn;
       oftp->offset += writeIn;
       if(oftp->offset > mip->INODE.i_size)
 	mip->INODE.i_size = oftp->offset;
@@ -760,9 +761,12 @@ int move()
 
   ino = getino(&oldDev, pathname);
   strcpy(oldPath, pathname);
+  
   // check the src file exists
   if(!ino)
     return -1;
+
+  newDev = running->cwd->dev;
 
   if(findparent(parameter))
     {

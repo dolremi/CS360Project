@@ -5,6 +5,7 @@
 #include "level3.h"
 
 functionTable myTable[] ={
+  {"mv",do_mv},
   {"menu",menu},
   {"umount",do_umount},
   {"mount",do_mount},
