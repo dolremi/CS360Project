@@ -96,7 +96,7 @@ unsigned long  getino(int *device, char *pathname){
     {
      
       mip = iget(*device, inumber);
-      printf("at first device is %d\n", *device);
+          
       //level3 go up
       if(inumber==2 && *device!=root->dev && (strcmp(name[i],"..")==0))
 	{
@@ -114,7 +114,6 @@ unsigned long  getino(int *device, char *pathname){
       else if(mip->mounted == 1)
       	{	
 	  *device = mip->mountptr->dev;
-	  printf("inumber = %d\n",inumber);
 	  iput(mip);
 	  mip = iget(*device,ROOT_INODE);
       	}
@@ -144,7 +143,6 @@ unsigned long  getino(int *device, char *pathname){
   if(mip->mounted == 1)
     {
       *device = mip->mountptr->dev;
-      printf("then device is %d\n", *device);
       inumber = ROOT_INODE;
     }
   iput(mip);
